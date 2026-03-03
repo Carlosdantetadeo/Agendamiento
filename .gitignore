@@ -1,5 +1,5 @@
 node_modules
 .env
-*.json
+gen-lang-client-*.json
 dist
 appointments.db
