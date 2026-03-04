@@ -1,7 +1,7 @@
 import { Routes, Route } from "react-router-dom";
-import HomePage from "./pages/HomePage";
-import AppointmentPage from "./pages/AppointmentPage";
-import AdminPage from "./pages/AdminPage";
+import HomePage from "./pages/HomePage.tsx";
+import AppointmentPage from "./pages/AppointmentPage.tsx";
+import AdminPage from "./pages/AdminPage.tsx";
 
 export default function App() {
   return (
