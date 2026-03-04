@@ -439,13 +439,18 @@ app.post("/api/book", async (req, res) => {
     return res.status(500).json({ error: "Failed to book appointment", details: dbError.message });
   }
 
-  // 3) Responder (incluir token para link cancelar/reprogramar)
+  // 3) Responder (incluir token y professionalName para la UI)
+  const professionalName =
+    professionalId != null
+      ? (db.prepare("SELECT name FROM professionals WHERE id = ?").get(professionalId) as { name: string } | undefined)?.name
+      : null;
   return res.status(200).json({
     success: true,
     message: "Cita agendada",
     googleSync,
     googleEventId,
     token,
+    professionalName: professionalName ?? null,
   });
 });
 
@@ -531,7 +536,8 @@ app.patch("/api/appointments/reschedule-by-token", (req, res) => {
   res.json(db.prepare("SELECT * FROM appointments WHERE id = ?").get(row.id));
 });
 
-// List appointments (admin): ?date=YYYY-MM-DD&professionalId=
+// List appointments (admin): ?date=YYYY-MM-DD (opcional) &professionalId=
+// Si no se envía date, devuelve las últimas citas (útil cuando la DB local es efímera en Vercel)
 app.get("/api/appointments", (req, res) => {
   const { date, professionalId } = req.query;
   try {
@@ -543,15 +549,18 @@ app.get("/api/appointments", (req, res) => {
       WHERE 1=1
     `;
     const params: (string | number)[] = [];
-    if (date) {
-      query += " AND a.dateTime LIKE ?";
-      params.push(`${date}%`);
+    if (date && String(date).trim()) {
+      query += " AND substr(a.dateTime, 1, 10) = ?";
+      params.push(String(date).trim());
     }
     if (professionalId) {
       query += " AND a.professional_id = ?";
       params.push(Number(professionalId));
     }
     query += " ORDER BY a.dateTime DESC";
+    if (!date || !String(date).trim()) {
+      query += " LIMIT 100";
+    }
     const appointments = db.prepare(query).all(...params);
     res.json(appointments);
   } catch (error: any) {

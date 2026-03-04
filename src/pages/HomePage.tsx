@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Calendar, Clock, Sparkles, CheckCircle2, AlertCircle, Loader2, ChevronRight } from "lucide-react";
 import type { Service, Professional, AvailabilitySlot } from "../types";
@@ -23,6 +22,7 @@ export default function HomePage() {
     clientName: string;
     phone: string;
     serviceName: string;
+    professionalName?: string | null;
     date: string;
     time: string;
     token?: string;
@@ -79,6 +79,7 @@ export default function HomePage() {
         clientName,
         phone,
         serviceName: service.name,
+        professionalName: data.professionalName ?? professional?.name ?? null,
         date,
         time: slot,
         token: data.token,
@@ -298,9 +299,6 @@ export default function HomePage() {
             <span>Cuidado Experto</span>
           </div>
           <p className="text-[11px] text-[#2C2C2C]/30">Lima, Perú — Cuidado de la piel profesional</p>
-          <Link to="/admin" className="text-[11px] text-[#2C2C2C]/50 hover:text-[#C5A059]">
-            Panel admin
-          </Link>
         </div>
       </main>
     </div>
@@ -310,48 +308,81 @@ export default function HomePage() {
 function SuccessStep({
   lastBooking,
 }: {
-  lastBooking: { clientName: string; serviceName: string; date: string; time: string; token?: string };
+  lastBooking: {
+    clientName: string;
+    serviceName: string;
+    professionalName?: string | null;
+    date: string;
+    time: string;
+    token?: string;
+  };
 }) {
   const link = lastBooking.token ? `${window.location.origin}/cita/${lastBooking.token}` : null;
   const businessPhone = "51906959989";
 
   const sendWhatsApp = () => {
+    const stylistLine = lastBooking.professionalName
+      ? `👩‍🦰 *Estilista:* ${lastBooking.professionalName}%0A`
+      : "";
     const msg =
       `✨ *GLOW SKINS BY NILDA REYES* ✨%0A` +
-      `----------------------------%0A` +
-      `🗓️ *NUEVA CITA AGENDADA*%0A%0A` +
+      `━━━━━━━━━━━━━━━━━━━━━━%0A` +
+      `🗓️ *¡Tu cita está confirmada!*%0A%0A` +
       `👤 *Clienta:* ${lastBooking.clientName}%0A` +
       `⭐ *Servicio:* ${lastBooking.serviceName}%0A` +
+      stylistLine +
       `📅 *Fecha:* ${lastBooking.date}%0A` +
-      `⏰ *Hora:* ${lastBooking.time}%0A` +
-      `%0A` +
-      `✅ *Estado:* Confirmado%0A` +
-      `----------------------------%0A` +
-      `¡Te esperamos en Glow Skins! ✨`;
+      `⏰ *Hora:* ${lastBooking.time}%0A%0A` +
+      `✅ *Estado:* Confirmado%0A%0A` +
+      `_¡Nos emociona verte pronto! Tu momento de autocuidado está reservado._ 💆‍♀️✨%0A` +
+      `━━━━━━━━━━━━━━━━━━━━━━%0A` +
+      `Te esperamos en Glow Skins.`;
     window.open(`https://wa.me/${businessPhone}?text=${msg}`, "_blank");
   };
 
   return (
-    <div className="p-6 bg-emerald-50 border border-emerald-100 rounded-2xl space-y-4">
-      <div className="flex items-center gap-3 text-emerald-800 text-sm">
-        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-        <p>¡Cita agendada!</p>
+    <div className="p-6 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl space-y-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden />
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-emerald-900">¡Cita agendada!</h2>
+          <p className="text-sm text-emerald-800/90">Revisa los datos abajo y guarda el link para cancelar o reprogramar.</p>
+        </div>
       </div>
-      <p className="text-sm text-[#2C2C2C]/80">
-        {lastBooking.clientName} — {lastBooking.serviceName} — {lastBooking.date} {lastBooking.time}
-      </p>
+      <dl className="grid gap-2 rounded-xl bg-white/60 p-4 text-sm">
+        <div className="flex justify-between gap-2">
+          <dt className="text-[#2C2C2C]/60">Cliente</dt>
+          <dd className="font-medium text-[#2C2C2C]">{lastBooking.clientName}</dd>
+        </div>
+        <div className="flex justify-between gap-2">
+          <dt className="text-[#2C2C2C]/60">Servicio</dt>
+          <dd className="font-medium text-[#2C2C2C]">{lastBooking.serviceName}</dd>
+        </div>
+        {lastBooking.professionalName && (
+          <div className="flex justify-between gap-2">
+            <dt className="text-[#2C2C2C]/60">Estilista</dt>
+            <dd className="font-medium text-[#2C2C2C]">{lastBooking.professionalName}</dd>
+          </div>
+        )}
+        <div className="flex justify-between gap-2">
+          <dt className="text-[#2C2C2C]/60">Fecha y hora</dt>
+          <dd className="font-medium text-[#2C2C2C]">{lastBooking.date} · {lastBooking.time}</dd>
+        </div>
+      </dl>
       {link && (
-        <p className="text-xs text-[#2C2C2C]/60 break-all">
-          Para cancelar o reprogramar:{" "}
-          <a href={link} className="text-[#C5A059] underline">
-            {link}
+        <p className="text-xs text-[#2C2C2C]/60">
+          Guarda este link para cancelar o reprogramar:{" "}
+          <a href={link} className="text-[#0d9488] underline break-all hover:text-[#0f766e]">
+            Ver mi cita
           </a>
         </p>
       )}
       <button
         type="button"
         onClick={sendWhatsApp}
-        className="mt-4 w-full py-3 rounded-xl bg-[#25D366] text-white text-xs font-bold uppercase tracking-widest hover:bg-[#128C7E] transition-colors"
+        className="w-full py-3.5 rounded-xl bg-[#25D366] text-white text-sm font-semibold shadow-md hover:bg-[#20bd5a] active:scale-[0.98] transition-all"
       >
         Enviar confirmación por WhatsApp
       </button>

@@ -24,15 +24,18 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
 
   const [agendaKey, setAgendaKey] = useState(0);
+  const [filterByDateOnly, setFilterByDateOnly] = useState(true);
   useEffect(() => {
     if (tab === "agenda") {
       setLoading(true);
-      fetch(`/api/appointments?date=${date}`)
+      const url = filterByDateOnly ? `/api/appointments?date=${date}` : "/api/appointments";
+      fetch(url)
         .then((r) => r.json())
         .then(setAppointments)
+        .catch(() => setAppointments([]))
         .finally(() => setLoading(false));
     }
-  }, [tab, date, agendaKey]);
+  }, [tab, date, agendaKey, filterByDateOnly]);
   const refreshAgenda = () => setAgendaKey((k) => k + 1);
 
   useEffect(() => {
@@ -71,7 +74,15 @@ export default function AdminPage() {
 
       <main className="max-w-4xl mx-auto p-6">
         {tab === "agenda" && (
-          <AgendaTab date={date} setDate={setDate} appointments={appointments} loading={loading} professionals={professionals} onRefresh={refreshAgenda} />
+          <AgendaTab
+            date={date}
+            setDate={setDate}
+            appointments={appointments}
+            loading={loading}
+            filterByDateOnly={filterByDateOnly}
+            setFilterByDateOnly={setFilterByDateOnly}
+            onRefresh={refreshAgenda}
+          />
         )}
         {tab === "services" && <ServicesTab services={services} onRefresh={() => fetch("/api/services").then((r) => r.json()).then(setServices)} />}
         {tab === "professionals" && <ProfessionalsTab professionals={professionals} services={services} onRefresh={() => fetch("/api/professionals").then((r) => r.json()).then(setProfessionals)} />}
@@ -86,14 +97,16 @@ function AgendaTab({
   setDate,
   appointments,
   loading,
-  professionals,
+  filterByDateOnly,
+  setFilterByDateOnly,
   onRefresh,
 }: {
   date: string;
   setDate: (d: string) => void;
   appointments: Appointment[];
   loading: boolean;
-  professionals: Professional[];
+  filterByDateOnly: boolean;
+  setFilterByDateOnly: (v: boolean) => void;
   onRefresh: () => void;
 }) {
   const handleCancel = async (id: number) => {
@@ -104,21 +117,43 @@ function AgendaTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <label className="text-sm font-medium">Fecha</label>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="border border-[#2C2C2C]/20 rounded-lg px-3 py-2 outline-none focus:border-[#2C2C2C]"
-        />
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-[#2C2C2C]/80">Fecha</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            disabled={!filterByDateOnly}
+            className="border border-[#2C2C2C]/20 rounded-lg px-3 py-2 outline-none focus:border-[#2C2C2C] disabled:opacity-60 disabled:bg-[#F3EFEC]/30"
+          />
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-[#2C2C2C]/80">
+          <input
+            type="checkbox"
+            checked={filterByDateOnly}
+            onChange={(e) => setFilterByDateOnly(e.target.checked)}
+            className="rounded border-[#2C2C2C]/30"
+          />
+          Solo esta fecha
+        </label>
+        {!filterByDateOnly && (
+          <span className="text-xs text-[#2C2C2C]/50">Mostrando últimas 100 citas</span>
+        )}
       </div>
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#2C2C2C]/40" /></div>
       ) : (
         <ul className="space-y-3">
           {appointments.length === 0 ? (
-            <li className="text-[#2C2C2C]/50 py-8 text-center">No hay citas este día.</li>
+            <li className="rounded-xl border border-[#F3EFEC] bg-white/60 p-8 text-center">
+              <p className="text-[#2C2C2C]/70 font-medium">
+                {filterByDateOnly ? "No hay citas para esta fecha." : "No hay citas en la base local."}
+              </p>
+              <p className="mt-2 text-sm text-[#2C2C2C]/50">
+                Las reservas también se sincronizan con Google Calendar; revisa allí si no ves citas aquí (en Vercel la base local puede ser efímera).
+              </p>
+            </li>
           ) : (
             appointments.map((a) => {
               const dt = new Date(a.dateTime);
