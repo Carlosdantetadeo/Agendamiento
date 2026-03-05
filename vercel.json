@@ -19,6 +19,9 @@
             "destination": "/server.ts"
         },
         {
+            "handle": "filesystem"
+        },
+        {
             "source": "/(.*)",
             "destination": "/index.html"
         }
