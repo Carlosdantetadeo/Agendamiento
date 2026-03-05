@@ -293,6 +293,10 @@ function ServicesTab({ services, onRefresh }: { services: Service[]; onRefresh: 
   );
 }
 
+const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+type ScheduleRow = { dayOfWeek: number; startTime: string; endTime: string };
+
 function ProfessionalsTab({
   professionals,
   services,
@@ -304,6 +308,44 @@ function ProfessionalsTab({
 }) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [schedule, setSchedule] = useState<ScheduleRow[]>([]);
+  const [assignedServices, setAssignedServices] = useState<Service[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [savingServices, setSavingServices] = useState(false);
+  const editorRef = React.useRef<HTMLDivElement>(null);
+
+  const editingProfessional = editingId ? professionals.find((p) => Number(p.id) === Number(editingId)) : null;
+
+  useEffect(() => {
+    if (!editingId) return;
+    setLoadingDetail(true);
+    Promise.all([
+      fetch(`/api/professionals/${editingId}/schedule`).then((r) => r.json()),
+      fetch(`/api/professionals/${editingId}/services`).then((r) => r.json()),
+    ])
+      .then(([sched, assigned]) => {
+        setSchedule(
+          (sched as { day_of_week: number; start_time: string; end_time: string }[]).map((s) => ({
+            dayOfWeek: s.day_of_week,
+            startTime: s.start_time || "09:00",
+            endTime: s.end_time || "18:00",
+          }))
+        );
+        setAssignedServices(Array.isArray(assigned) ? assigned : []);
+      })
+      .catch(() => setSchedule([]))
+      .finally(() => setLoadingDetail(false));
+  }, [editingId]);
+
+  useEffect(() => {
+    if (editingId && editorRef.current) {
+      editorRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [editingId]);
+
+  const assignedIds = new Set(assignedServices.map((s) => s.id));
 
   const add = async () => {
     if (!name.trim()) return;
@@ -316,7 +358,59 @@ function ProfessionalsTab({
   const remove = async (id: number) => {
     if (!confirm("¿Eliminar este profesional?")) return;
     await fetch(`/api/professionals/${id}`, { method: "DELETE" });
+    if (editingId === id) setEditingId(null);
     onRefresh();
+  };
+
+  const addScheduleRow = () => setSchedule((prev) => [...prev, { dayOfWeek: 1, startTime: "09:00", endTime: "18:00" }]);
+  const removeScheduleRow = (i: number) => setSchedule((prev) => prev.filter((_, idx) => idx !== i));
+  const updateScheduleRow = (i: number, field: keyof ScheduleRow, value: number | string) => {
+    setSchedule((prev) => prev.map((row, idx) => (idx === i ? { ...row, [field]: value } : row)));
+  };
+
+  const saveSchedule = async () => {
+    if (!editingId) return;
+    setSavingSchedule(true);
+    try {
+      const payload = schedule.filter((s) => s.startTime && s.endTime && s.dayOfWeek != null);
+      const res = await fetch(`/api/professionals/${editingId}/schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schedule: payload }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+    } catch (e: any) {
+      alert(e.message || "Error al guardar horario");
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const toggleService = (serviceId: number) => {
+    if (assignedIds.has(serviceId)) {
+      setAssignedServices((prev) => prev.filter((s) => s.id !== serviceId));
+    } else {
+      const svc = services.find((s) => s.id === serviceId);
+      if (svc) setAssignedServices((prev) => [...prev, svc]);
+    }
+  };
+
+  const saveServices = async () => {
+    if (!editingId) return;
+    setSavingServices(true);
+    try {
+      const serviceIds = assignedServices.map((s) => s.id);
+      const res = await fetch(`/api/professionals/${editingId}/services`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serviceIds }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+    } catch (e: any) {
+      alert(e.message || "Error al guardar servicios");
+    } finally {
+      setSavingServices(false);
+    }
   };
 
   return (
@@ -347,13 +441,80 @@ function ProfessionalsTab({
           <li key={p.id} className="flex items-center justify-between p-4 bg-white border border-[#F3EFEC] rounded-xl">
             <p className="font-medium">{p.name}</p>
             <div className="flex gap-2">
-              <a href={`#/admin/professional/${p.id}`} className="text-sm text-[#C5A059] underline">Horarios y servicios</a>
+              <button
+                type="button"
+                onClick={() => setEditingId(Number(p.id))}
+                className="text-sm font-medium text-[#C5A059] underline hover:no-underline"
+              >
+                Horarios y servicios
+              </button>
               <button type="button" onClick={() => remove(p.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
             </div>
           </li>
         ))}
       </ul>
-      <p className="text-xs text-[#2C2C2C]/50">Para asignar servicios y horarios a cada profesional, usa la opción "Horarios y servicios" (próximamente en detalle). Por ahora el primer profesional tiene todos los servicios y horario Lun-Sáb 9:00-18:00 por defecto.</p>
+
+      {editingProfessional && (
+        <div ref={editorRef} className="bg-white border-2 border-[#C5A059]/40 rounded-xl p-4 space-y-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold">Horarios y servicios — {editingProfessional.name}</h2>
+            <button type="button" onClick={() => setEditingId(null)} className="text-sm text-[#2C2C2C]/60 hover:text-[#2C2C2C] underline">Cerrar</button>
+          </div>
+
+          {loadingDetail ? (
+            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#2C2C2C]/40" /></div>
+          ) : (
+            <>
+              <section>
+                <h3 className="text-sm font-medium text-[#2C2C2C]/80 mb-2">Servicios que ofrece</h3>
+                <ul className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {services.map((s) => (
+                    <li key={s.id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`svc-${editingId}-${s.id}`}
+                        checked={assignedIds.has(s.id)}
+                        onChange={() => toggleService(s.id)}
+                        className="rounded border-[#2C2C2C]/30"
+                      />
+                      <label htmlFor={`svc-${editingId}-${s.id}`} className="text-sm cursor-pointer">{s.name} — {s.durationMinutes} min</label>
+                    </li>
+                  ))}
+                </ul>
+                {services.length === 0 && <p className="text-sm text-[#2C2C2C]/50">Crea servicios en la pestaña Servicios.</p>}
+                <button type="button" onClick={saveServices} disabled={savingServices} className="mt-2 px-3 py-1.5 bg-[#2C2C2C] text-white rounded-lg text-sm disabled:opacity-70 flex items-center gap-1">
+                  {savingServices ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Guardar servicios
+                </button>
+              </section>
+
+              <section>
+                <h3 className="text-sm font-medium text-[#2C2C2C]/80 mb-2">Horario (0=Dom, 1=Lun … 6=Sáb)</h3>
+                <div className="space-y-2">
+                  {schedule.map((row, i) => (
+                    <div key={i} className="flex flex-wrap items-center gap-2">
+                      <select value={row.dayOfWeek} onChange={(e) => updateScheduleRow(i, "dayOfWeek", Number(e.target.value))} className="border border-[#2C2C2C]/20 rounded-lg px-2 py-1.5 text-sm w-24">
+                        {DAY_NAMES.map((name, d) => <option key={d} value={d}>{name}</option>)}
+                      </select>
+                      <input type="time" value={row.startTime} onChange={(e) => updateScheduleRow(i, "startTime", e.target.value)} className="border border-[#2C2C2C]/20 rounded-lg px-2 py-1.5 text-sm" />
+                      <span className="text-[#2C2C2C]/50">a</span>
+                      <input type="time" value={row.endTime} onChange={(e) => updateScheduleRow(i, "endTime", e.target.value)} className="border border-[#2C2C2C]/20 rounded-lg px-2 py-1.5 text-sm" />
+                      <button type="button" onClick={() => removeScheduleRow(i)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button type="button" onClick={addScheduleRow} className="flex items-center gap-1 px-3 py-1.5 border border-[#2C2C2C]/20 rounded-lg text-sm">+ Añadir horario</button>
+                  <button type="button" onClick={saveSchedule} disabled={savingSchedule} className="px-3 py-1.5 bg-[#2C2C2C] text-white rounded-lg text-sm disabled:opacity-70 flex items-center gap-1">
+                    {savingSchedule ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Guardar horario
+                  </button>
+                </div>
+              </section>
+            </>
+          )}
+        </div>
+      )}
+
+      <p className="text-xs text-[#2C2C2C]/50">Haz clic en <strong>Horarios y servicios</strong> de un profesional: se abrirá el formulario debajo para asignar servicios y horarios. Luego pulsa &quot;Guardar servicios&quot; y &quot;Guardar horario&quot;.</p>
     </div>
   );
 }
