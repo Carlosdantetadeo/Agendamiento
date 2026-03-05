@@ -160,7 +160,7 @@ app.post("/api/professionals", async (req, res) => {
   const { name } = req.body || {};
   if (!name) return res.status(400).json({ error: "Missing name" });
   try {
-    const row = await insertProfessional({ name });
+    const row = await insertProfessional(name);
     res.status(201).json(row);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -178,7 +178,7 @@ app.put("/api/professionals/:id", async (req, res) => {
   const id = Number(req.params.id);
   if (!name) return res.status(400).json({ error: "Missing name" });
   try {
-    const row = await updateProfessional(id, { name });
+    const row = await updateProfessional(id, name);
     if (!row) return res.status(404).json({ error: "Not found" });
     res.json(row);
   } catch (e: any) {
