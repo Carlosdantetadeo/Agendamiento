@@ -86,6 +86,16 @@ if (!useSupabase && db) {
 }
 if (useSupabase) console.log("[DB] Using Supabase");
 
+// The following lines are moved to lib/db.js as per the instruction's intent
+// const supabaseUrl = process.env.SUPABASE_URL?.trim();
+// const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+// export const useSupabase = Boolean(supabaseUrl && supabaseServiceKey);
+//
+// export let supabase: SupabaseClient | null = null;
+// if (useSupabase) {
+//   supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+// }
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -381,7 +391,7 @@ app.post("/api/book", async (req, res) => {
   const token = generateToken();
 
   // 1) Primero intentar Google Calendar (await real, antes de responder)
-  const gEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const gEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
   let gKey = process.env.GOOGLE_PRIVATE_KEY;
   const gCalendarId =
     process.env.GOOGLE_CALENDAR_ID?.trim() ||
@@ -391,9 +401,10 @@ app.post("/api/book", async (req, res) => {
   let googleEventId: string | null = null;
 
   if (gEmail && gKey) {
-    // Key cleanup (Vercel suele guardar saltos de línea como \n)
+    // Key cleanup: Vercel y otros entornos a veces añaden comillas o escapan mal los saltos de línea
     gKey = gKey.trim();
     if (gKey.startsWith('"') && gKey.endsWith('"')) gKey = gKey.slice(1, -1);
+    if (gKey.startsWith("'") && gKey.endsWith("'")) gKey = gKey.slice(1, -1);
     gKey = gKey.replace(/\\n/g, "\n");
 
     try {

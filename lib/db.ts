@@ -7,8 +7,8 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import Database from "better-sqlite3";
 import path from "path";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.SUPABASE_URL?.trim();
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 export const useSupabase = Boolean(supabaseUrl && supabaseServiceKey);
 
 export let supabase: SupabaseClient | null = null;
