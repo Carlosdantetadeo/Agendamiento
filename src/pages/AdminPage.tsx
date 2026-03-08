@@ -805,7 +805,9 @@ function NewAppointmentTab({
               <span className="font-medium">{confirmed.timeStr}</span>
             </div>
           </div>
+        </div>
         <a href={confirmed.waUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] text-white rounded-xl font-medium text-sm">Enviar confirmacion por WhatsApp</a>
+        <div className="flex gap-3">
           <button type="button" onClick={() => setConfirmed(null)} className="flex-1 py-2 border border-[#2C2C2C]/20 rounded-xl text-sm">Nueva cita</button>
           <button type="button" onClick={() => { setConfirmed(null); onDone(); }} className="flex-1 py-2 bg-[#2C2C2C] text-white rounded-xl text-sm">Ver agenda</button>
         </div>
