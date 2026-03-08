@@ -468,6 +468,7 @@ type ScheduleRow = { dayOfWeek: number; startTime: string; endTime: string };
 function ProfessionalsTab({
   professionals,
   services,
+  maxProfessionals,
   onRefresh,
 }: {
   professionals: Professional[];
