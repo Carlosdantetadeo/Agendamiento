@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Calendar, Clock, Sparkles, CheckCircle2, AlertCircle, Loader2, ChevronRight } from "lucide-react";
 import type { Service, Professional, AvailabilitySlot } from "../types";
@@ -327,6 +328,9 @@ export default function HomePage() {
             <span>Cuidado Experto</span>
           </div>
           <p className="text-[11px] text-[#2C2C2C]/30">Lima, Perú — Cuidado de la piel profesional</p>
+          <p className="text-[10px] text-[#2C2C2C]/25">
+            <Link to="/admin" className="underline hover:text-[#2C2C2C]/50">Admin</Link>
+          </p>
         </div>
       </main>
     </div>

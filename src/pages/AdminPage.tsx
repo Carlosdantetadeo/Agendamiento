@@ -177,6 +177,10 @@ function AgendaTab({
   filterByDateOnly,
   setFilterByDateOnly,
   onRefresh,
+  professionals,
+  services,
+  viewMode,
+  setViewMode,
 }: {
   date: string;
   setDate: (d: string) => void;
@@ -187,6 +191,8 @@ function AgendaTab({
   onRefresh: () => void;
   professionals: Professional[];
   services: Service[];
+  viewMode: 'day' | 'week';
+  setViewMode: (v: 'day' | 'week') => void;
 }) {
   const [professionalFilter, setProfessionalFilter] = useState<number | "all">("all");
 
@@ -835,3 +841,4 @@ function NewAppointmentTab({
     </form>
   );
 }
+

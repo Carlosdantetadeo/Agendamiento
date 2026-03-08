@@ -7,10 +7,10 @@ import ProfessionalDetailPage from "./pages/ProfessionalDetailPage.tsx";
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/cita/:token" element={<AppointmentPage />} />
-      <Route path="/admin" element={<AdminPage />} />
       <Route path="/admin/professional/:id" element={<ProfessionalDetailPage />} />
+      <Route path="/admin" element={<AdminPage />} />
+      <Route path="/cita/:token" element={<AppointmentPage />} />
+      <Route path="/" element={<HomePage />} />
     </Routes>
   );
 }
