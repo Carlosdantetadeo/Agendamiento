@@ -717,7 +717,15 @@ function NewAppointmentTab({
   const [professionalId, setProfessionalId] = useState<number | "">("");
   const [dateTime, setDateTime] = useState("");
   const [sending, setSending] = useState(false);
-  const [done, setDone] = useState(false);
+  const [confirmed, setConfirmed] = useState<null | {
+    clientName: string;
+    phone: string;
+    serviceName: string;
+    professionalName: string;
+    dateStr: string;
+    timeStr: string;
+    waUrl: string;
+  }>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -738,31 +746,16 @@ function NewAppointmentTab({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "No se pudo crear la cita");
-      const svcName =
-        data.serviceName ||
-        services.find((s) => s.id === (serviceId || data.service_id))?.name ||
-        "";
-      const profName = data.professionalName || professionals.find((p) => p.id === data.professional_id)?.name;
+
+      const svcName = data.serviceName || services.find((s) => s.id === (serviceId || data.service_id))?.name || "Sin servicio";
+      const profName = data.professionalName || professionals.find((p) => p.id === (professionalId || data.professional_id))?.name || "";
       const localDate = new Date(dateTime);
-      const dateStr = localDate.toISOString().slice(0, 10);
+      const dateStr = localDate.toLocaleDateString("es-PE", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
       const timeStr = dateTime.slice(11, 16);
       const businessPhone = "51906959989";
-      const stylistLine = profName ? `👩‍🦰 *Estilista:* ${profName}%0A` : "";
-      const msg =
-        `✨ *GLOW SKINS BY NILDA REYES* ✨%0A` +
-        `━━━━━━━━━━━━━━━━━━━━━━%0A` +
-        `🗓️ *¡Tu cita está confirmada!*%0A%0A` +
-        `👤 *Clienta:* ${clientName}%0A` +
-        `⭐ *Servicio:* ${svcName}%0A` +
-        stylistLine +
-        `📅 *Fecha:* ${dateStr}%0A` +
-        `⏰ *Hora:* ${timeStr}%0A%0A` +
-        `✅ *Estado:* Confirmado%0A%0A` +
-        `_¡Nos emociona verte pronto! Tu momento de autocuidado está reservado._ 💆‍♀️✨%0A` +
-        `━━━━━━━━━━━━━━━━━━━━━━%0A` +
-        `Te esperamos en Glow Skins.`;
-      window.open(`https://wa.me/${businessPhone}?text=${msg}`, "_blank");
-      setDone(true);
+      const stylistLine = profName ? "[Profesional: " + profName + "]%0A" : "";
+      const msg = "[GLOW SKINS BY NILDA REYES]%0A" + "------------------------%0A" + "[Tu cita esta confirmada!]%0A%0A" + "[Clienta:] " + clientName + "%0A" + "[Servicio:] " + svcName + "%0A" + stylistLine + "[Fecha:] " + dateStr + "%0A" + "[Hora:] " + timeStr + "%0A%0A" + "[Estado: Confirmado]%0A" + "Te esperamos en Glow Skins.";
+      setConfirmed({ clientName, phone, serviceName: svcName, professionalName: profName, dateStr, timeStr, waUrl: "https://wa.me/51906959989?text=" + msg });
       setClientName("");
       setPhone("");
       setEmail("");
@@ -776,68 +769,67 @@ function NewAppointmentTab({
     }
   };
 
-  if (done) {
+  if (confirmed) {
     return (
-      <div className="p-8 bg-emerald-50 border border-emerald-100 rounded-2xl text-center">
-        <p className="text-emerald-800 font-medium">Cita agregada (presencial/telefónica).</p>
-        <button type="button" onClick={() => { setDone(false); onDone(); }} className="mt-4 text-[#C5A059] underline">Ver agenda</button>
+      <div className="max-w-md space-y-6">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 space-y-4">
+          <div className="text-center">
+            <p className="text-2xl">?</p>
+            <h2 className="text-lg font-semibold text-emerald-800 mt-1">?Cita confirmada!</h2>
+          </div>
+          <div className="space-y-2 text-sm text-[#2C2C2C]">
+            <div className="flex justify-between">
+              <span className="text-[#2C2C2C]/60">Clienta</span>
+              <span className="font-medium">{confirmed.clientName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#2C2C2C]/60">Tel?fono</span>
+              <span className="font-medium">{confirmed.phone}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#2C2C2C]/60">Servicio</span>
+              <span className="font-medium">{confirmed.serviceName}</span>
+            </div>
+            {confirmed.professionalName && (
+              <div className="flex justify-between">
+                <span className="text-[#2C2C2C]/60">Profesional</span>
+                <span className="font-medium">{confirmed.professionalName}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-[#2C2C2C]/60">Fecha</span>
+              <span className="font-medium">{confirmed.dateStr}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#2C2C2C]/60">Hora</span>
+              <span className="font-medium">{confirmed.timeStr}</span>
+            </div>
+          </div>
+        <a href={confirmed.waUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] text-white rounded-xl font-medium text-sm">Enviar confirmacion por WhatsApp</a>
+          <button type="button" onClick={() => setConfirmed(null)} className="flex-1 py-2 border border-[#2C2C2C]/20 rounded-xl text-sm">Nueva cita</button>
+          <button type="button" onClick={() => { setConfirmed(null); onDone(); }} className="flex-1 py-2 bg-[#2C2C2C] text-white rounded-xl text-sm">Ver agenda</button>
+        </div>
       </div>
     );
   }
 
   return (
     <form onSubmit={submit} className="space-y-4 max-w-md">
-      <input
-        required
-        placeholder="Nombre del cliente"
-        value={clientName}
-        onChange={(e) => setClientName(e.target.value)}
-        className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2"
-      />
-      <input
-        required
-        placeholder="Teléfono"
-        value={phone}
-        onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
-        className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2"
-      />
-      <input
-        type="email"
-        placeholder="Email (opcional)"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2"
-      />
-      <select
-        value={serviceId}
-        onChange={(e) => setServiceId(e.target.value ? Number(e.target.value) : "")}
-        className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2"
-      >
+      <input required placeholder="Nombre del cliente" value={clientName} onChange={(e) => setClientName(e.target.value)} className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2" />
+      <input required placeholder="Tel?fono" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\\D/g, "").slice(0, 9))} className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2" />
+      <input type="email" placeholder="Email (opcional)" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2" />
+      <select value={serviceId} onChange={(e) => setServiceId(e.target.value ? Number(e.target.value) : "")} className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2">
         <option value="">Servicio (opcional)</option>
-        {services.map((s) => (
-          <option key={s.id} value={s.id}>{s.name} — {s.durationMinutes} min</option>
-        ))}
+        {services.map((s) => (<option key={s.id} value={s.id}>{s.name} ? {s.durationMinutes} min</option>))}
       </select>
-      <select
-        value={professionalId}
-        onChange={(e) => setProfessionalId(e.target.value ? Number(e.target.value) : "")}
-        className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2"
-      >
+      <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value ? Number(e.target.value) : "")} className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2">
         <option value="">Profesional (opcional)</option>
-        {professionals.map((p) => (
-          <option key={p.id} value={p.id}>{p.name}</option>
-        ))}
+        {professionals.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
       </select>
-      <input
-        required
-        type="datetime-local"
-        value={dateTime}
-        onChange={(e) => setDateTime(e.target.value)}
-        className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2"
-      />
+      <input required type="datetime-local" value={dateTime} onChange={(e) => setDateTime(e.target.value)} className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2" />
       <button type="submit" disabled={sending} className="w-full py-3 bg-[#2C2C2C] text-white rounded-xl font-medium disabled:opacity-70 flex items-center justify-center gap-2">
         {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-        Agregar cita (presencial/telefónica)
+        Agregar cita
       </button>
     </form>
   );
