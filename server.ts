@@ -4,6 +4,7 @@ import { google } from "googleapis";
 import cors from "cors";
 import path from "path";
 import crypto from "crypto";
+import { addMinutes, areIntervalsOverlapping } from "date-fns";
 import {
   useSupabase,
   db,
@@ -38,6 +39,7 @@ import {
 
 const TIMEZONE = "America/Lima";
 const CANCELLATION_MIN_HOURS_BEFORE = 2;
+const MAX_PROFESSIONALS = Number(process.env.MAX_PROFESSIONALS || 20);
 
 // Inicializar esquema SQLite solo cuando NO se usa Supabase
 if (!useSupabase && db) {
@@ -106,6 +108,34 @@ function generateToken() {
   return crypto.randomBytes(16).toString("hex");
 }
 
+async function ensureNoDoubleBooking(
+  professionalId: number | null | undefined,
+  startISO: string,
+  durationMinutes: number
+) {
+  if (!professionalId) return;
+  const start = new Date(startISO);
+  const end = addMinutes(start, durationMinutes || 60);
+  const sameDay = start.toISOString().slice(0, 10);
+  const existing = await getAppointments({
+    date: sameDay,
+    professionalId,
+  });
+  const hasOverlap = existing.some((a: any) =>
+    areIntervalsOverlapping(
+      { start, end },
+      {
+        start: new Date(a.dateTime),
+        end: addMinutes(new Date(a.dateTime), a.durationMinutes || 60),
+      },
+      { inclusive: false }
+    )
+  );
+  if (hasOverlap) {
+    throw new Error("El profesional ya tiene una cita en ese horario.");
+  }
+}
+
 // ----- Services CRUD -----
 app.get("/api/services", async (req, res) => {
   try {
@@ -170,6 +200,10 @@ app.post("/api/professionals", async (req, res) => {
   const { name } = req.body || {};
   if (!name) return res.status(400).json({ error: "Missing name" });
   try {
+    const current = await getProfessionals();
+    if (current.length >= MAX_PROFESSIONALS) {
+      return res.status(400).json({ error: `Límite de ${MAX_PROFESSIONALS} profesionales alcanzado` });
+    }
     const row = await insertProfessional(name);
     res.status(201).json(row);
   } catch (e: any) {
@@ -390,6 +424,16 @@ app.post("/api/book", async (req, res) => {
 
   const token = generateToken();
 
+  try {
+    await ensureNoDoubleBooking(
+      professionalId != null ? Number(professionalId) : null,
+      dateTime,
+      durationMinutes
+    );
+  } catch (overlapError: any) {
+    return res.status(400).json({ error: overlapError.message });
+  }
+
   // 1) Primero intentar Google Calendar (await real, antes de responder)
   const gEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
   let gKey = process.env.GOOGLE_PRIVATE_KEY;
@@ -505,6 +549,11 @@ app.post("/api/appointments", async (req, res) => {
   }
   const token = generateToken();
   try {
+    await ensureNoDoubleBooking(
+      professionalId != null ? Number(professionalId) : null,
+      dateTime,
+      durationMinutes
+    );
     await insertAppointment({
       clientName,
       phone,
@@ -543,6 +592,15 @@ app.patch("/api/appointments/:id/cancel", async (req, res) => {
     return res.status(400).json({ error: `Solo se puede cancelar con al menos ${CANCELLATION_MIN_HOURS_BEFORE}h de anticipación` });
   }
   await updateAppointmentStatus(id, "cancelled");
+  res.json({ ok: true });
+});
+
+app.patch("/api/appointments/:id/no-show", async (req, res) => {
+  const id = Number(req.params.id);
+  const appt = await getAppointmentById(id);
+  if (!appt) return res.status(404).json({ error: "Not found" });
+  if (appt.status !== "pending") return res.status(400).json({ error: "Solo se puede marcar no-show desde estado pending" });
+  await updateAppointmentStatus(id, "no_show");
   res.json({ ok: true });
 });
 

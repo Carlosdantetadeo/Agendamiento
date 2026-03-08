@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "usecase-booking-options": {
+      "source": "cowork-os/cowork-os",
+      "sourceType": "github",
+      "computedHash": "6c5501bc84589ec5cbc8ea530e73ec8d8b97dcc9f1e609d264c8a40bce1ac7f2"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "d8e7d3afe37dcc8a97b99ffb5afdb4d0919ae0092ea8b68f44eb201f035e33ac"
+    }
+  }
+}

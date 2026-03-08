@@ -29,34 +29,62 @@ export default function HomePage() {
   } | null>(null);
 
   useEffect(() => {
-    fetch("/api/services")
-      .then((r) => r.json())
-      .then(setServices)
-      .catch(console.error);
-    fetch("/api/professionals")
-      .then((r) => r.json())
-      .then(setProfessionals)
-      .catch(console.error);
+    const loadInitialData = async () => {
+      try {
+        const [servicesRes, professionalsRes] = await Promise.all([
+          fetch("/api/services"),
+          fetch("/api/professionals"),
+        ]);
+        if (!servicesRes.ok || !professionalsRes.ok) {
+          throw new Error("Estamos teniendo un problema para cargar los datos. Por favor, intenta nuevamente en unos minutos.");
+        }
+        const [servicesData, professionalsData] = await Promise.all([
+          servicesRes.json(),
+          professionalsRes.json(),
+        ]);
+        setServices(Array.isArray(servicesData) ? servicesData : []);
+        setProfessionals(Array.isArray(professionalsData) ? professionalsData : []);
+      } catch (err: any) {
+        console.error(err);
+        setStatus("error");
+        setErrorMessage(err.message || "No se pudieron cargar los datos iniciales.");
+      }
+    };
+    loadInitialData();
   }, []);
 
   useEffect(() => {
     if (!date || !service) return;
+    setErrorMessage("");
     setLoadAvail(true);
     const professionalId = professional ? professional.id : "";
     const url = `/api/availability?date=${date}&serviceId=${service.id}${
       professionalId ? `&professionalId=${professionalId}` : ""
     }`;
     fetch(url)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("No se pudo obtener la disponibilidad para esa fecha. Intenta con otro horario o revisa más tarde.");
+        return r.json();
+      })
       .then((data) => setAvailability(Array.isArray(data) ? data : []))
-      .catch(() => setAvailability([]))
+      .catch((err: any) => {
+        console.error(err);
+        setAvailability([]);
+        setStatus("error");
+        setErrorMessage(err.message || "No se pudo obtener la disponibilidad.");
+      })
       .finally(() => setLoadAvail(false));
   }, [date, service, professional]);
 
   const handleBook = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientName || !phone || !date || !slot || !service) return;
+    if (!clientName || !phone || !date || !slot || !service) {
+      setStatus("error");
+      setErrorMessage("Por favor completa todos los campos obligatorios y elige un horario disponible.");
+      return;
+    }
 
+    setErrorMessage("");
     setLoading(true);
     setStatus("idle");
     const dateTime = new Date(`${date}T${slot}`).toISOString();

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 import {
@@ -14,6 +15,7 @@ import {
 import type { Service, Professional, Appointment } from "../types";
 
 type Tab = "agenda" | "services" | "professionals" | "new-appointment";
+const MAX_PROFESSIONALS = 20;
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("agenda");
@@ -22,25 +24,63 @@ export default function AdminPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [viewMode, setViewMode] = useState<"day" | "week">("day");
 
   const [agendaKey, setAgendaKey] = useState(0);
   const [filterByDateOnly, setFilterByDateOnly] = useState(true);
   useEffect(() => {
     if (tab === "agenda") {
-      setLoading(true);
-      const url = filterByDateOnly ? `/api/appointments?date=${date}` : "/api/appointments";
-      fetch(url)
-        .then((r) => r.json())
-        .then(setAppointments)
-        .catch(() => setAppointments([]))
-        .finally(() => setLoading(false));
+      const loadAppointments = async () => {
+        setLoading(true);
+        setErrorMessage("");
+        const url =
+          viewMode === "day" && filterByDateOnly
+            ? `/api/appointments?date=${date}`
+            : "/api/appointments";
+        try {
+          const res = await fetch(url);
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || "No se pudo obtener la agenda. Intenta nuevamente en unos minutos.");
+          }
+          const data = await res.json();
+          setAppointments(Array.isArray(data) ? data : []);
+        } catch (err: any) {
+          console.error(err);
+          setAppointments([]);
+          setErrorMessage(err.message || "No se pudo cargar la agenda.");
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadAppointments();
     }
-  }, [tab, date, agendaKey, filterByDateOnly]);
+  }, [tab, date, agendaKey, filterByDateOnly, viewMode]);
   const refreshAgenda = () => setAgendaKey((k) => k + 1);
 
   useEffect(() => {
-    fetch("/api/services").then((r) => r.json()).then(setServices);
-    fetch("/api/professionals").then((r) => r.json()).then(setProfessionals);
+    const loadMeta = async () => {
+      try {
+        const [servicesRes, professionalsRes] = await Promise.all([
+          fetch("/api/services"),
+          fetch("/api/professionals"),
+        ]);
+        if (!servicesRes.ok || !professionalsRes.ok) {
+          throw new Error("No se pudieron cargar servicios o profesionales.");
+        }
+        const [servicesData, professionalsData] = await Promise.all([
+          servicesRes.json(),
+          professionalsRes.json(),
+        ]);
+        setServices(Array.isArray(servicesData) ? servicesData : []);
+        setProfessionals(Array.isArray(professionalsData) ? professionalsData : []);
+      } catch (err: any) {
+        console.error(err);
+        setErrorMessage(err.message || "Hubo un problema al cargar datos de administración.");
+      }
+    };
+    loadMeta();
   }, [tab]);
 
   return (
@@ -73,6 +113,11 @@ export default function AdminPage() {
       </nav>
 
       <main className="max-w-4xl mx-auto p-6">
+        {errorMessage && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {errorMessage}
+          </div>
+        )}
         {tab === "agenda" && (
           <AgendaTab
             date={date}
@@ -82,10 +127,42 @@ export default function AdminPage() {
             filterByDateOnly={filterByDateOnly}
             setFilterByDateOnly={setFilterByDateOnly}
             onRefresh={refreshAgenda}
+            professionals={professionals}
+            services={services}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
           />
         )}
-        {tab === "services" && <ServicesTab services={services} onRefresh={() => fetch("/api/services").then((r) => r.json()).then(setServices)} />}
-        {tab === "professionals" && <ProfessionalsTab professionals={professionals} services={services} onRefresh={() => fetch("/api/professionals").then((r) => r.json()).then(setProfessionals)} />}
+        {tab === "services" && (
+          <ServicesTab
+            services={services}
+            onRefresh={async () => {
+              try {
+                const res = await fetch("/api/services");
+                const data = await res.json().catch(() => []);
+                setServices(Array.isArray(data) ? data : []);
+              } catch {
+                setServices([]);
+              }
+            }}
+          />
+        )}
+        {tab === "professionals" && (
+          <ProfessionalsTab
+            professionals={professionals}
+            services={services}
+            maxProfessionals={MAX_PROFESSIONALS}
+            onRefresh={async () => {
+              try {
+                const res = await fetch("/api/professionals");
+                const data = await res.json().catch(() => []);
+                setProfessionals(Array.isArray(data) ? data : []);
+              } catch {
+                setProfessionals([]);
+              }
+            }}
+          />
+        )}
         {tab === "new-appointment" && <NewAppointmentTab services={services} professionals={professionals} onDone={() => { setTab("agenda"); refreshAgenda(); }} />}
       </main>
     </div>
@@ -108,10 +185,45 @@ function AgendaTab({
   filterByDateOnly: boolean;
   setFilterByDateOnly: (v: boolean) => void;
   onRefresh: () => void;
+  professionals: Professional[];
+  services: Service[];
 }) {
+  const [professionalFilter, setProfessionalFilter] = useState<number | "all">("all");
+
+  const filteredAppointments =
+    professionalFilter === "all"
+      ? appointments
+      : appointments.filter((a) => a.professional_id === professionalFilter);
+
+  const byProfessional = new Map<string, number>();
+  filteredAppointments.forEach((a) => {
+    const name = a.professionalName || "Sin asignar";
+    byProfessional.set(name, (byProfessional.get(name) || 0) + 1);
+  });
+
+  const projectedIncome = filteredAppointments.reduce((sum, a) => {
+    const svc = services.find((s) => s.id === a.service_id);
+    return sum + (svc?.price || 0);
+  }, 0);
+
+  const completedIncome = filteredAppointments
+    .filter((a) => a.status === "completed")
+    .reduce((sum, a) => {
+      const svc = services.find((s) => s.id === a.service_id);
+      return sum + (svc?.price || 0);
+    }, 0);
+
+  const noShowCount = filteredAppointments.filter((a) => a.status === "no_show").length;
+
   const handleCancel = async (id: number) => {
     if (!confirm("¿Cancelar esta cita?")) return;
     await fetch(`/api/appointments/${id}/cancel`, { method: "PATCH" });
+    onRefresh();
+  };
+
+  const handleNoShow = async (id: number) => {
+    if (!confirm("¿Marcar esta cita como no-show?")) return;
+    await fetch(`/api/appointments/${id}/no-show`, { method: "PATCH" });
     onRefresh();
   };
 
@@ -140,12 +252,46 @@ function AgendaTab({
         {!filterByDateOnly && (
           <span className="text-xs text-[#2C2C2C]/50">Mostrando últimas 100 citas</span>
         )}
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-[#2C2C2C]/80">Profesional</label>
+          <select
+            value={professionalFilter}
+            onChange={(e) =>
+              setProfessionalFilter(e.target.value === "all" ? "all" : Number(e.target.value))
+            }
+            className="border border-[#2C2C2C]/20 rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="all">Todos</option>
+            {professionals.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border border-[#F3EFEC] bg-white/70 p-4">
+          <p className="text-xs text-[#2C2C2C]/50">Citas del día</p>
+          <p className="mt-1 text-xl font-semibold">{filteredAppointments.length}</p>
+        </div>
+        <div className="rounded-xl border border-[#F3EFEC] bg-white/70 p-4">
+          <p className="text-xs text-[#2C2C2C]/50">Ingresos proyectados</p>
+          <p className="mt-1 text-xl font-semibold">S/. {projectedIncome.toFixed(2)}</p>
+          <p className="mt-1 text-xs text-[#2C2C2C]/50">
+            Reales (completadas): S/. {completedIncome.toFixed(2)}
+          </p>
+        </div>
+        <div className="rounded-xl border border-[#F3EFEC] bg-white/70 p-4">
+          <p className="text-xs text-[#2C2C2C]/50">No-show</p>
+          <p className="mt-1 text-xl font-semibold">{noShowCount}</p>
+        </div>
       </div>
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#2C2C2C]/40" /></div>
       ) : (
         <ul className="space-y-3">
-          {appointments.length === 0 ? (
+          {filteredAppointments.length === 0 ? (
             <li className="rounded-xl border border-[#F3EFEC] bg-white/60 p-8 text-center">
               <p className="text-[#2C2C2C]/70 font-medium">
                 {filterByDateOnly ? "No hay citas para esta fecha." : "No hay citas en la base local."}
@@ -155,7 +301,7 @@ function AgendaTab({
               </p>
             </li>
           ) : (
-            appointments.map((a) => {
+            filteredAppointments.map((a) => {
               const dt = new Date(a.dateTime);
               const timeStr = dt.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", hour12: false });
               return (
@@ -183,7 +329,23 @@ function AgendaTab({
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
-                    {a.status !== "pending" && <span className="text-xs text-[#2C2C2C]/50">{a.status}</span>}
+                    {a.status === "pending" && (
+                      <button
+                        type="button"
+                        onClick={() => handleNoShow(a.id)}
+                        className="px-2 py-1 text-xs text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-50"
+                      >
+                        No-show
+                      </button>
+                    )}
+                    {a.status !== "pending" && a.status !== "no_show" && (
+                      <span className="text-xs text-[#2C2C2C]/50">{a.status}</span>
+                    )}
+                    {a.status === "no_show" && (
+                      <span className="text-xs text-red-700 bg-red-50 px-2 py-1 rounded-lg">
+                        No-show
+                      </span>
+                    )}
                   </div>
                 </li>
               );
@@ -304,6 +466,7 @@ function ProfessionalsTab({
 }: {
   professionals: Professional[];
   services: Service[];
+  maxProfessionals: number;
   onRefresh: () => void;
 }) {
   const [adding, setAdding] = useState(false);
@@ -315,6 +478,7 @@ function ProfessionalsTab({
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [savingServices, setSavingServices] = useState(false);
   const editorRef = React.useRef<HTMLDivElement>(null);
+  const maxReached = professionals.length >= maxProfessionals;
 
   const editingProfessional = editingId ? professionals.find((p) => Number(p.id) === Number(editingId)) : null;
 
@@ -348,6 +512,10 @@ function ProfessionalsTab({
   const assignedIds = new Set(assignedServices.map((s) => s.id));
 
   const add = async () => {
+    if (maxReached) {
+      alert(`Solo se permiten hasta ${maxProfessionals} profesionales.`);
+      return;
+    }
     if (!name.trim()) return;
     await fetch("/api/professionals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim() }) });
     setName("");
@@ -416,6 +584,7 @@ function ProfessionalsTab({
   return (
     <div className="space-y-4">
       {!adding && (
+        !maxReached && (
         <button
           type="button"
           onClick={() => setAdding(true)}
@@ -423,6 +592,7 @@ function ProfessionalsTab({
         >
           <Plus className="w-4 h-4" /> Nuevo profesional
         </button>
+        )
       )}
       {adding && (
         <div className="flex gap-2">
@@ -435,6 +605,11 @@ function ProfessionalsTab({
           <button type="button" onClick={add} className="px-4 py-2 bg-[#2C2C2C] text-white rounded-lg text-sm">Agregar</button>
           <button type="button" onClick={() => { setAdding(false); setName(""); }} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
         </div>
+      )}
+      {maxReached && (
+        <p className="text-xs text-[#2C2C2C]/50">
+          Has alcanzado el máximo de {maxProfessionals} profesionales configurados para esta cuenta.
+        </p>
       )}
       <ul className="space-y-2">
         {professionals.map((p) => (
@@ -554,7 +729,32 @@ function NewAppointmentTab({
           dateTime: new Date(dateTime).toISOString(),
         }),
       });
-      if (!res.ok) throw new Error((await res.json()).error);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "No se pudo crear la cita");
+      const svcName =
+        data.serviceName ||
+        services.find((s) => s.id === (serviceId || data.service_id))?.name ||
+        "";
+      const profName = data.professionalName || professionals.find((p) => p.id === data.professional_id)?.name;
+      const localDate = new Date(dateTime);
+      const dateStr = localDate.toISOString().slice(0, 10);
+      const timeStr = dateTime.slice(11, 16);
+      const businessPhone = "51906959989";
+      const stylistLine = profName ? `👩‍🦰 *Estilista:* ${profName}%0A` : "";
+      const msg =
+        `✨ *GLOW SKINS BY NILDA REYES* ✨%0A` +
+        `━━━━━━━━━━━━━━━━━━━━━━%0A` +
+        `🗓️ *¡Tu cita está confirmada!*%0A%0A` +
+        `👤 *Clienta:* ${clientName}%0A` +
+        `⭐ *Servicio:* ${svcName}%0A` +
+        stylistLine +
+        `📅 *Fecha:* ${dateStr}%0A` +
+        `⏰ *Hora:* ${timeStr}%0A%0A` +
+        `✅ *Estado:* Confirmado%0A%0A` +
+        `_¡Nos emociona verte pronto! Tu momento de autocuidado está reservado._ 💆‍♀️✨%0A` +
+        `━━━━━━━━━━━━━━━━━━━━━━%0A` +
+        `Te esperamos en Glow Skins.`;
+      window.open(`https://wa.me/${businessPhone}?text=${msg}`, "_blank");
       setDone(true);
       setClientName("");
       setPhone("");
