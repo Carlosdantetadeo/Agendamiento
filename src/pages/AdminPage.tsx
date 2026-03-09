@@ -103,9 +103,8 @@ export default function AdminPage() {
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              tab === id ? "border-[#2C2C2C] text-[#2C2C2C]" : "border-transparent text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
-            }`}
+            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${tab === id ? "border-[#2C2C2C] text-[#2C2C2C]" : "border-transparent text-[#2C2C2C]/60 hover:text-[#2C2C2C]"
+              }`}
           >
             <Icon className="w-4 h-4" /> {label}
           </button>
@@ -592,13 +591,13 @@ function ProfessionalsTab({
     <div className="space-y-4">
       {!adding && (
         !maxReached && (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#2C2C2C] text-white rounded-xl text-sm"
-        >
-          <Plus className="w-4 h-4" /> Nuevo profesional
-        </button>
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#2C2C2C] text-white rounded-xl text-sm"
+          >
+            <Plus className="w-4 h-4" /> Nuevo profesional
+          </button>
         )
       )}
       {adding && (
@@ -757,28 +756,30 @@ function NewAppointmentTab({
         (professionalId !== ""
           ? professionals.find((p) => p.id === (professionalId || data.professional_id))?.name
           : null) ||
-        "";
+        "Cualquiera disponible";
       const localDate = new Date(dateTime);
       const dateStr = localDate.toLocaleDateString("es-PE", {
         weekday: "long",
-        year: "numeric",
-        month: "long",
         day: "numeric",
+        month: "long",
+        year: "numeric",
       });
       const timeStr = dateTime.slice(11, 16);
       const businessPhone = "51906959989";
-      const parts = [
-        "GLOW SKINS BY NILDA REYES",
-        "------------------------",
-        "Tu cita esta confirmada",
-        "",
-        "Clienta: " + clientName.trim(),
-        "Servicio: " + svcName,
-      ];
-      if (profName) parts.push("Profesional: " + profName);
-      parts.push("Fecha: " + dateStr, "Hora: " + timeStr, "", "Estado: Confirmado", "Te esperamos en Glow Skins.");
-      const waUrl =
-        "https://wa.me/" + businessPhone + "?text=" + encodeURIComponent(parts.join("\n"));
+      const waMsg =
+        "GLOW SKINS BY NILDA REYES\n" +
+        "------------------------\n" +
+        "Tu cita esta confirmada\n\n" +
+        "Cliente: " + clientName.trim() + "\n" +
+        "Servicio: " + svcName + "\n" +
+        (profName ? "Profesional: " + profName + "\n" : "") +
+        "Fecha: " + dateStr + "\n" +
+        "Hora: " + timeStr + "\n\n" +
+        "Estado: Confirmado\n" +
+        "Te esperamos en Glow Skins.";
+
+      const waUrl = "https://wa.me/" + businessPhone + "?text=" + encodeURIComponent(waMsg);
+
       setConfirmed({
         clientName: clientName.trim(),
         phone: phone.trim(),
@@ -788,6 +789,8 @@ function NewAppointmentTab({
         timeStr,
         waUrl,
       });
+
+      // Reset fields
       setClientName("");
       setPhone("");
       setEmail("");
@@ -801,55 +804,57 @@ function NewAppointmentTab({
     }
   };
 
-  if (confirmed !== null) {
+  if (confirmed) {
     return (
-      <div className="max-w-md space-y-6">
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 space-y-4">
-          <div className="text-center">
-            <h2 className="text-lg font-semibold text-emerald-800">Cita confirmada</h2>
+      <div key="confirmation-view" className="max-w-md w-full bg-white border border-[#F3EFEC] rounded-2xl p-6 space-y-6 shadow-sm">
+        <div className="space-y-4">
+          <div className="border-b border-[#F3EFEC] pb-4">
+            <h2 className="text-lg font-semibold text-[#2C2C2C]">Resumen de cita</h2>
+            <p className="text-xs text-[#2C2C2C]/50">La cita ha sido registrada exitosamente.</p>
           </div>
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between gap-2">
-              <dt className="text-[#2C2C2C]/60">Nombre del cliente</dt>
-              <dd className="font-medium text-[#2C2C2C]">{confirmed.clientName}</dd>
+
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-[#2C2C2C]/60">Cliente:</span>
+              <span className="font-medium">{confirmed.clientName}</span>
             </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-[#2C2C2C]/60">Telefono</dt>
-              <dd className="font-medium text-[#2C2C2C]">{confirmed.phone}</dd>
+            <div className="flex justify-between text-sm">
+              <span className="text-[#2C2C2C]/60">Telefono:</span>
+              <span className="font-medium">{confirmed.phone}</span>
             </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-[#2C2C2C]/60">Servicio</dt>
-              <dd className="font-medium text-[#2C2C2C]">{confirmed.serviceName}</dd>
+            <div className="flex justify-between text-sm">
+              <span className="text-[#2C2C2C]/60">Servicio:</span>
+              <span className="font-medium">{confirmed.serviceName}</span>
             </div>
-            {confirmed.professionalName ? (
-              <div className="flex justify-between gap-2">
-                <dt className="text-[#2C2C2C]/60">Profesional</dt>
-                <dd className="font-medium text-[#2C2C2C]">{confirmed.professionalName}</dd>
-              </div>
-            ) : null}
-            <div className="flex justify-between gap-2">
-              <dt className="text-[#2C2C2C]/60">Fecha</dt>
-              <dd className="font-medium text-[#2C2C2C]">{confirmed.dateStr}</dd>
+            <div className="flex justify-between text-sm">
+              <span className="text-[#2C2C2C]/60">Profesional:</span>
+              <span className="font-medium">{confirmed.professionalName}</span>
             </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-[#2C2C2C]/60">Hora</dt>
-              <dd className="font-medium text-[#2C2C2C]">{confirmed.timeStr}</dd>
+            <div className="flex justify-between text-sm">
+              <span className="text-[#2C2C2C]/60">Fecha:</span>
+              <span className="font-medium capitalize">{confirmed.dateStr}</span>
             </div>
-          </dl>
+            <div className="flex justify-between text-sm">
+              <span className="text-[#2C2C2C]/60">Hora:</span>
+              <span className="font-medium">{confirmed.timeStr}</span>
+            </div>
+          </div>
         </div>
+
         <a
           href={confirmed.waUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center w-full py-3 bg-[#25D366] text-white rounded-xl font-medium text-sm"
+          className="flex items-center justify-center w-full py-4 bg-[#25D366] text-white rounded-xl font-bold text-sm tracking-wide transition-transform hover:scale-[1.02] active:scale-[0.98]"
         >
           Enviar confirmacion por WhatsApp
         </a>
-        <div className="flex gap-3">
+
+        <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={() => setConfirmed(null)}
-            className="flex-1 py-2 border border-[#2C2C2C]/20 rounded-xl text-sm font-medium"
+            className="py-3 border border-[#2C2C2C]/20 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
           >
             Nueva cita
           </button>
@@ -859,7 +864,7 @@ function NewAppointmentTab({
               setConfirmed(null);
               onDone();
             }}
-            className="flex-1 py-2 bg-[#2C2C2C] text-white rounded-xl text-sm font-medium"
+            className="py-3 bg-[#2C2C2C] text-white rounded-xl text-sm font-medium hover:bg-black transition-colors"
           >
             Ver agenda
           </button>
@@ -869,68 +874,97 @@ function NewAppointmentTab({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4 max-w-md">
-      <input
-        required
-        placeholder="Nombre del cliente"
-        value={clientName}
-        onChange={(e) => setClientName(e.target.value)}
-        className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2"
-      />
-      <input
-        required
-        placeholder="Telefono"
-        value={phone}
-        onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
-        className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2"
-      />
-      <input
-        type="email"
-        placeholder="Email (opcional)"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2"
-      />
-      <select
-        value={serviceId === "" ? "" : String(serviceId)}
-        onChange={(e) => setServiceId(e.target.value === "" ? "" : Number(e.target.value))}
-        className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2"
-      >
-        <option value="">Servicio (opcional)</option>
-        {services.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.name} - {s.durationMinutes} min
-          </option>
-        ))}
-      </select>
-      <select
-        value={professionalId === "" ? "" : String(professionalId)}
-        onChange={(e) => setProfessionalId(e.target.value === "" ? "" : Number(e.target.value))}
-        className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2"
-      >
-        <option value="">Profesional (opcional)</option>
-        {professionals.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-      <input
-        required
-        type="datetime-local"
-        value={dateTime}
-        onChange={(e) => setDateTime(e.target.value)}
-        className="w-full border border-[#2C2C2C]/20 rounded-lg px-3 py-2"
-      />
-      <button
-        type="submit"
-        disabled={sending}
-        className="w-full py-3 bg-[#2C2C2C] text-white rounded-xl font-medium disabled:opacity-70 flex items-center justify-center gap-2"
-      >
-        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-        Agregar cita
-      </button>
-    </form>
+    <div key="form-view" className="max-w-md w-full">
+      <form onSubmit={submit} className="space-y-5 bg-white border border-[#F3EFEC] rounded-2xl p-6 shadow-sm">
+        <h2 className="text-lg font-semibold mb-2">Manual Appointment</h2>
+
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase font-bold text-[#2C2C2C]/40 ml-1">Nombre</label>
+            <input
+              required
+              placeholder="Ej. Maria Garcia"
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+              className="w-full border border-[#2C2C2C]/10 rounded-xl px-4 py-3 bg-[#FDFBF9] focus:outline-none focus:border-[#2C2C2C]/30"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase font-bold text-[#2C2C2C]/40 ml-1">Telefono</label>
+            <input
+              required
+              placeholder="999888777"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
+              className="w-full border border-[#2C2C2C]/10 rounded-xl px-4 py-3 bg-[#FDFBF9] focus:outline-none focus:border-[#2C2C2C]/30"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase font-bold text-[#2C2C2C]/40 ml-1">Email (opcional)</label>
+            <input
+              type="email"
+              placeholder="cliente@ejemplo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border border-[#2C2C2C]/10 rounded-xl px-4 py-3 bg-[#FDFBF9] focus:outline-none focus:border-[#2C2C2C]/30"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase font-bold text-[#2C2C2C]/40 ml-1">Servicio</label>
+              <select
+                required
+                value={serviceId === "" ? "" : String(serviceId)}
+                onChange={(e) => setServiceId(e.target.value === "" ? "" : Number(e.target.value))}
+                className="w-full border border-[#2C2C2C]/10 rounded-xl px-4 py-3 bg-[#FDFBF9] focus:outline-none focus:border-[#2C2C2C]/30"
+              >
+                <option value="">Seleccionar</option>
+                {services.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase font-bold text-[#2C2C2C]/40 ml-1">Profesional</label>
+              <select
+                required
+                value={professionalId === "" ? "" : String(professionalId)}
+                onChange={(e) => setProfessionalId(e.target.value === "" ? "" : Number(e.target.value))}
+                className="w-full border border-[#2C2C2C]/10 rounded-xl px-4 py-3 bg-[#FDFBF9] focus:outline-none focus:border-[#2C2C2C]/30"
+              >
+                <option value="">Seleccionar</option>
+                {professionals.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase font-bold text-[#2C2C2C]/40 ml-1">Fecha y Hora</label>
+            <input
+              required
+              type="datetime-local"
+              value={dateTime}
+              onChange={(e) => setDateTime(e.target.value)}
+              className="w-full border border-[#2C2C2C]/10 rounded-xl px-4 py-3 bg-[#FDFBF9] focus:outline-none focus:border-[#2C2C2C]/30"
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={sending}
+          className="w-full py-4 bg-[#2C2C2C] text-white rounded-xl font-bold text-sm tracking-wide disabled:opacity-50 flex items-center justify-center gap-3 transition-transform active:scale-[0.98]"
+        >
+          {sending ? <Loader2 className="w-4 h-4 animate-spin text-white/50" /> : null}
+          {sending ? "Guardando..." : "Registrar Cita"}
+        </button>
+      </form>
+    </div>
   );
 }
 
