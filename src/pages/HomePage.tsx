@@ -211,8 +211,43 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-12"
               >
+                <section className="space-y-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs uppercase font-bold text-brand-primary tracking-[0.2em]">2. Especialista</h3>
+                    {professional && <button onClick={() => setProfessional(null)} className="text-[10px] font-bold text-slate-400 uppercase">Cualquiera</button>}
+                  </div>
+                  <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide py-2 px-1">
+                    <button
+                      onClick={() => setProfessional(null)}
+                      className={`flex-shrink-0 w-32 h-32 rounded-3xl border-2 transition-all p-4 flex flex-col items-center justify-center gap-3 text-center
+                        ${!professional
+                          ? 'border-brand-primary bg-brand-primary/5 shadow-lg shadow-brand-primary/10'
+                          : 'border-slate-100 bg-slate-50 hover:border-slate-200'}`}
+                    >
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${!professional ? 'bg-brand-primary text-white' : 'bg-slate-200 text-slate-400'}`}>
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest leading-tight">Cualquier Especialista</span>
+                    </button>
+                    {professionals.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => setProfessional(p)}
+                        className={`flex-shrink-0 w-32 h-32 rounded-3xl border-2 transition-all p-4 flex flex-col items-center justify-center gap-3 text-center
+                          ${professional?.id === p.id
+                            ? 'border-brand-primary bg-brand-primary/5 shadow-lg shadow-brand-primary/10'
+                            : 'border-slate-100 bg-slate-50 hover:border-slate-200'}`}
+                      >
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${professional?.id === p.id ? 'bg-brand-primary text-white' : 'bg-slate-200 text-slate-400'}`}>
+                          <Star className="w-5 h-5" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest leading-tight">{p.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
                 <div className="space-y-6">
-                  <h3 className="text-xs uppercase font-bold text-brand-primary tracking-[0.2em]">2. Fecha y Horario</h3>
+                  <h3 className="text-xs uppercase font-bold text-brand-primary tracking-[0.2em]">3. Fecha y Horario</h3>
                   <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                     <div className="relative bg-slate-50 p-6 rounded-2xl border border-slate-200">
                       <label className="text-[10px] font-bold text-slate-400 uppercase mb-3 block">Calendario</label>
@@ -244,7 +279,7 @@ export default function HomePage() {
                 </div>
 
                 <div className="space-y-6">
-                  <h3 className="text-xs uppercase font-bold text-brand-primary tracking-[0.2em]">3. Tus datos</h3>
+                  <h3 className="text-xs uppercase font-bold text-brand-primary tracking-[0.2em]">4. Tus datos</h3>
                   <div className="space-y-4">
                     <input
                       placeholder="Nombre Completo"

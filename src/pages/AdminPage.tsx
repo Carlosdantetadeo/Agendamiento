@@ -27,7 +27,8 @@ import {
   Phone,
   Mail,
   MoreVertical,
-  ArrowLeft
+  ArrowLeft,
+  ShieldCheck
 } from "lucide-react";
 import type { Service, Professional, Appointment } from "../types";
 
@@ -103,12 +104,22 @@ export default function AdminPage() {
     <div className="min-h-screen bg-brand-beige text-brand-dark font-sans selection:bg-brand-primary/20">
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-brand-dark/5 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 text-brand-dark/40 hover:text-brand-dark transition-colors group">
-            <ChevronLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
-            <span className="text-[10px] uppercase font-bold tracking-widest text-brand-dark">Glow Skins Web</span>
-          </Link>
-          <div className="w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <Lock className="w-4 h-4 text-slate-300" />
+          <div className="flex items-center gap-6">
+            <Link to="/" className="flex items-center gap-2 text-brand-dark/40 hover:text-brand-dark transition-colors group">
+              <ChevronLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
+              <span className="text-[10px] uppercase font-bold tracking-widest text-brand-dark">Sitio Web</span>
+            </Link>
+            <div className="h-6 w-px bg-brand-dark/10" />
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-brand-primary/10 flex items-center justify-center">
+                <ShieldCheck className="w-4 h-4 text-brand-primary" />
+              </div>
+              <h1 className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-dark">Panel Administrativo</h1>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-brand-primary animate-pulse" />
+            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Sesión Privada</span>
           </div>
         </div>
       </header>
