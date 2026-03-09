@@ -1,7 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "motion/react";
-import { Calendar, Clock, Sparkles, CheckCircle2, AlertCircle, Loader2, ChevronRight } from "lucide-react";
+import { motion, AnimatePresence, useScroll, useTransform } from "motion/react";
+import {
+  Calendar,
+  Clock,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  ChevronRight,
+  ArrowRight,
+  ShieldCheck,
+  Star,
+  MapPin,
+  ChevronDown
+} from "lucide-react";
 import type { Service, Professional, AvailabilitySlot } from "../types";
 
 export default function HomePage() {
@@ -29,6 +42,8 @@ export default function HomePage() {
     token?: string;
   } | null>(null);
 
+  const bookingRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -37,7 +52,7 @@ export default function HomePage() {
           fetch("/api/professionals"),
         ]);
         if (!servicesRes.ok || !professionalsRes.ok) {
-          throw new Error("Estamos teniendo un problema para cargar los datos. Por favor, intenta nuevamente en unos minutos.");
+          throw new Error("No pudimos cargar los servicios. Revisa tu conexion.");
         }
         const [servicesData, professionalsData] = await Promise.all([
           servicesRes.json(),
@@ -48,7 +63,7 @@ export default function HomePage() {
       } catch (err: any) {
         console.error(err);
         setStatus("error");
-        setErrorMessage(err.message || "No se pudieron cargar los datos iniciales.");
+        setErrorMessage(err.message || "Error al cargar datos.");
       }
     };
     loadInitialData();
@@ -59,12 +74,11 @@ export default function HomePage() {
     setErrorMessage("");
     setLoadAvail(true);
     const professionalId = professional ? professional.id : "";
-    const url = `/api/availability?date=${date}&serviceId=${service.id}${
-      professionalId ? `&professionalId=${professionalId}` : ""
-    }`;
+    const url = `/api/availability?date=${date}&serviceId=${service.id}${professionalId ? `&professionalId=${professionalId}` : ""
+      }`;
     fetch(url)
       .then((r) => {
-        if (!r.ok) throw new Error("No se pudo obtener la disponibilidad para esa fecha. Intenta con otro horario o revisa más tarde.");
+        if (!r.ok) throw new Error("No hay disponibilidad.");
         return r.json();
       })
       .then((data) => setAvailability(Array.isArray(data) ? data : []))
@@ -72,7 +86,7 @@ export default function HomePage() {
         console.error(err);
         setAvailability([]);
         setStatus("error");
-        setErrorMessage(err.message || "No se pudo obtener la disponibilidad.");
+        setErrorMessage(err.message || "Error al cargar disponibilidad.");
       })
       .finally(() => setLoadAvail(false));
   }, [date, service, professional]);
@@ -81,7 +95,7 @@ export default function HomePage() {
     e.preventDefault();
     if (!clientName || !phone || !date || !slot || !service) {
       setStatus("error");
-      setErrorMessage("Por favor completa todos los campos obligatorios y elige un horario disponible.");
+      setErrorMessage("Por favor completa todos los campos.");
       return;
     }
 
@@ -126,299 +140,426 @@ export default function HomePage() {
     }
   };
 
+  const scrollToBooking = () => {
+    bookingRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
-    <div className="min-h-screen bg-[#FDFBF9] text-[#2C2C2C] font-sans">
-      <header className="pt-16 pb-8 px-6 text-center max-w-2xl mx-auto">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-          <h1 className="text-3xl md:text-4xl font-serif tracking-tight mb-2 italic">Glow Skins</h1>
-          <p className="text-[10px] uppercase tracking-[0.3em] text-[#2C2C2C]/60 font-medium">By Nilda Reyes</p>
-          <div className="h-px w-12 bg-[#2C2C2C]/20 mx-auto mt-6" />
-        </motion.div>
-      </header>
+    <div className="min-h-screen bg-brand-beige selection:bg-brand-primary/20">
+      {/* Hero Section */}
+      <section className="relative h-screen flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <img
+            src="/assets/hero.png"
+            alt="Glow Skins"
+            className="w-full h-full object-cover scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-brand-dark/40 via-brand-dark/10 to-brand-beige" />
+        </div>
 
-      <main className="max-w-md mx-auto px-6 pb-20">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white/50 backdrop-blur-sm border border-[#F3EFEC] rounded-3xl p-8 shadow-sm"
-        >
-          {status === "success" && lastBooking ? (
-            <SuccessStep lastBooking={lastBooking} />
-          ) : (
-            <form onSubmit={handleBook} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-widest font-semibold text-[#2C2C2C]/50 ml-1">
-                  Servicio
-                </label>
-                <select
-                  value={service?.id ?? ""}
-                  onChange={(e) => {
-                    const id = Number(e.target.value);
-                    setService(services.find((s) => s.id === id) ?? null);
-                    setProfessional(null);
-                  }}
-                  className="w-full bg-[#F3EFEC]/30 border-b border-[#2C2C2C]/10 py-3 px-1 focus:border-[#2C2C2C] outline-none"
-                >
-                  <option value="">Selecciona un servicio</option>
-                  {services.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} — {s.durationMinutes} min (S/. {s.price})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {service && (
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest font-semibold text-[#2C2C2C]/50 ml-1">
-                    Profesional (opcional)
-                  </label>
-                  <select
-                    value={professional?.id ?? ""}
-                    onChange={(e) => {
-                      const id = Number(e.target.value);
-                      setProfessional(id ? professionals.find((p) => p.id === id) ?? null : null);
-                    }}
-                    className="w-full bg-[#F3EFEC]/30 border-b border-[#2C2C2C]/10 py-3 px-1 focus:border-[#2C2C2C] outline-none"
-                  >
-                    <option value="">Cualquier disponible</option>
-                    {professionals.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-widest font-semibold text-[#2C2C2C]/50 ml-1 flex items-center gap-2">
-                  <Calendar className="w-3 h-3" /> Fecha
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={date}
-                  onChange={(e) => {
-                    setDate(e.target.value);
-                    setSlot("");
-                  }}
-                  min={new Date().toISOString().slice(0, 10)}
-                  className="w-full bg-transparent border-b border-[#2C2C2C]/10 py-3 pl-6 pr-1 focus:border-[#2C2C2C] outline-none"
-                />
-              </div>
-
-              {date && service && (
-                <div className="space-y-4">
-                  <label className="text-[10px] uppercase tracking-widest font-semibold text-[#2C2C2C]/50 ml-1 flex items-center gap-2">
-                    <Clock className="w-3 h-3" /> Hora disponible
-                  </label>
-                  {loadAvail ? (
-                    <div className="flex items-center gap-2 text-[#2C2C2C]/60">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Cargando...
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-4 gap-2">
-                      {availability.map((a) => (
-                        <button
-                          key={a.time}
-                          type="button"
-                          onClick={() => setSlot(a.time)}
-                          className={`py-2 rounded-lg text-xs font-medium border transition-all ${
-                            slot === a.time
-                              ? "bg-[#2C2C2C] text-white border-[#2C2C2C]"
-                              : "bg-white border-[#F3EFEC] hover:border-[#2C2C2C]/20"
-                          }`}
-                        >
-                          {a.time}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {!loadAvail && availability.length === 0 && date && service && (
-                    <p className="text-sm text-amber-700">
-                      No hay horarios disponibles este día. Elige otra fecha o configura horarios en Admin.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-widest font-semibold text-[#2C2C2C]/50 ml-1">
-                  Nombre
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. María García"
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  className="w-full bg-[#F3EFEC]/30 border-b border-[#2C2C2C]/10 py-3 px-1 focus:border-[#2C2C2C] outline-none placeholder:text-[#2C2C2C]/20"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-widest font-semibold text-[#2C2C2C]/50 ml-1">
-                  Teléfono (Perú)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-1 top-1/2 -translate-y-1/2 text-sm text-[#2C2C2C]/40">+51</span>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="987 654 321"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
-                    className="w-full bg-[#F3EFEC]/30 border-b border-[#2C2C2C]/10 py-3 pl-10 pr-1 focus:border-[#2C2C2C] outline-none placeholder:text-[#2C2C2C]/20"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-widest font-semibold text-[#2C2C2C]/50 ml-1">
-                  Email (opcional)
-                </label>
-                <input
-                  type="email"
-                  placeholder="correo@ejemplo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-[#F3EFEC]/30 border-b border-[#2C2C2C]/10 py-3 px-1 focus:border-[#2C2C2C] outline-none placeholder:text-[#2C2C2C]/20"
-                />
-              </div>
-
+        <div className="relative z-10 text-center px-6 max-w-4xl mx-auto space-y-8">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+          >
+            <span className="text-[10px] uppercase tracking-[0.5em] text-white/80 font-bold mb-6 block">
+              Glow Skins by Nilda Reyes
+            </span>
+            <h1 className="text-5xl md:text-7xl lg:text-8xl text-white mb-8 text-glow">
+              Revela la mejor <br />
+              <span className="italic font-normal">version de tu piel</span>
+            </h1>
+            <p className="text-lg md:text-xl text-white/90 font-light max-w-2xl mx-auto mb-10 leading-relaxed">
+              Tratamientos de alta gama diseñados para resaltar tu brillo natural.
+              Vivi la experiencia Glow Skins en Lima.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
-                type="submit"
-                disabled={loading || !service || !date || !slot}
-                className="w-full group relative overflow-hidden bg-[#2C2C2C] text-[#FDFBF9] py-5 rounded-2xl font-medium tracking-wide transition-all active:scale-[0.98] disabled:opacity-70"
+                onClick={scrollToBooking}
+                className="premium-button group bg-brand-primary text-white px-10 py-5 rounded-full font-bold flex items-center gap-3 transition-transform hover:scale-105 active:scale-95"
               >
-                <div className="relative z-10 flex items-center justify-center gap-2">
+                Reservar mi Experiencia
+                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+              </button>
+              <div className="flex items-center gap-2 text-white/80 text-sm">
+                <div className="flex -space-x-2">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="w-8 h-8 rounded-full border-2 border-brand-dark/20 bg-brand-nude overflow-hidden">
+                      <div className="w-full h-full bg-brand-primary/20 flex items-center justify-center text-[10px] font-bold">GS</div>
+                    </div>
+                  ))}
+                </div>
+                <span className="ml-2">+500 clientas felices</span>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        <motion.div
+          animate={{ y: [0, 10, 0] }}
+          transition={{ repeat: Infinity, duration: 2.5 }}
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 cursor-pointer text-brand-dark/40"
+          onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
+        >
+          <ChevronDown className="w-6 h-6" />
+        </motion.div>
+      </section>
+
+      {/* Problem Section */}
+      <section className="py-24 px-6 bg-white overflow-hidden">
+        <div className="max-w-screen-xl mx-auto grid md:grid-cols-2 gap-16 items-center">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="space-y-8"
+          >
+            <span className="text-[10px] uppercase font-bold text-brand-primary tracking-widest">El Problema</span>
+            <h2 className="text-4xl md:text-5xl">¿Tu piel ha perdido su <span className="italic">vitalidad natural</span>?</h2>
+            <div className="space-y-6 text-brand-dark/70 text-lg font-light leading-relaxed">
+              <p>
+                El estres diario, el sol de Lima y el paso del tiempo pueden dejar rastro en tu rostro,
+                apagando tu luz y afectando tu confianza.
+              </p>
+              <p>
+                No mereces conformarte con soluciones genericas que no brindan resultados reales.
+                Tu piel necesita un cuidado tan unico como tu.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-8 pt-6">
+              <div className="space-y-2">
+                <span className="text-brand-primary font-serif italic text-3xl italic block">85%</span>
+                <p className="text-xs uppercase tracking-wider font-bold opacity-40">De nuestras clientas sintieron alivio inmediato</p>
+              </div>
+              <div className="space-y-2">
+                <span className="text-brand-primary font-serif italic text-3xl italic block">100%</span>
+                <p className="text-xs uppercase tracking-wider font-bold opacity-40">Personalizacion garantizada</p>
+              </div>
+            </div>
+          </motion.div>
+          <div className="relative">
+            <div className="aspect-[4/5] rounded-3xl overflow-hidden bg-brand-nude shadow-2xl">
+              <div className="w-full h-full glass-card flex items-center justify-center p-12">
+                <Sparkles className="w-48 h-48 text-brand-primary/20" />
+              </div>
+            </div>
+            <div className="absolute -bottom-8 -left-8 p-6 bg-white rounded-2xl shadow-xl space-y-2 max-w-[200px]">
+              <div className="flex gap-1 text-brand-primary">
+                {[1, 2, 3, 4, 5].map(i => <Star key={i} className="w-3 h-3 fill-current" />)}
+              </div>
+              <p className="text-xs font-medium tabular-nums">"Mis manchas desaparecieron despues de 3 sesiones."</p>
+              <p className="text-[10px] uppercase font-bold text-brand-primary/60">Claudia V.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Solution/Services Section */}
+      <section className="py-24 px-6 bg-brand-beige">
+        <div className="max-w-screen-xl mx-auto space-y-20">
+          <div className="text-center space-y-4 max-w-2xl mx-auto">
+            <span className="text-[10px] uppercase font-bold text-brand-primary tracking-widest">Nuestros Servicios</span>
+            <h2 className="text-4xl md:text-5xl">La combinacion perfecta entre <span className="italic">ciencia y arte</span></h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {services.slice(0, 3).map((s, idx) => (
+              <motion.div
+                key={s.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.1 }}
+                className="glass-card hover:translate-y-[-8px] transition-all p-8 rounded-3xl group"
+              >
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm group-hover:bg-brand-primary group-hover:text-white transition-colors duration-500">
+                  {idx === 0 ? <Sparkles className="w-5 h-5" /> : idx === 1 ? <ShieldCheck className="w-5 h-5" /> : <Star className="w-5 h-5" />}
+                </div>
+                <h3 className="text-2xl mb-4">{s.name}</h3>
+                <p className="text-brand-dark/60 text-sm font-light leading-loose mb-8">
+                  {idx === 0 ? "Elimina impurezas y restaura la respiracion de tus poros con nuestra tecnica exclusiva." :
+                    idx === 1 ? "Renueva las capas de tu piel para una textura de seda y un tono uniforme." :
+                      "No adivinamos, analizamos lo que tu piel realmente necesita para un resultado duradero."}
+                </p>
+                <div className="flex items-center justify-between pt-6 border-t border-brand-dark/5">
+                  <span className="text-xs font-bold uppercase tracking-widest text-brand-primary opacity-80">{s.durationMinutes} MIN</span>
+                  <span className="text-lg font-serif">S/. {s.price}</span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <button onClick={scrollToBooking} className="text-brand-dark/60 text-sm font-bold uppercase tracking-[0.2em] flex items-center justify-center gap-3 mx-auto hover:text-brand-primary transition-colors">
+              Ver todos los tratamientos <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* How it Works Section */}
+      <section className="py-24 px-6 bg-brand-dark text-white overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-brand-primary/10 blur-[150px] rounded-full translate-x-1/2 -translate-y-1/2" />
+        <div className="max-w-screen-xl mx-auto flex flex-col items-center gap-16">
+          <div className="text-center space-y-4 max-w-2xl mx-auto">
+            <span className="text-[10px] uppercase font-bold text-brand-primary tracking-widest">El Proceso</span>
+            <h2 className="text-4xl md:text-5xl text-white">Tres pasos para tu <span className="italic text-brand-primary">nueva luz</span></h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 w-full">
+            {[
+              { step: "01", title: "Elige tu tratamiento", desc: "Selecciona el servicio que mejor se adapte a tus objetivos." },
+              { step: "02", title: "Reserva tu horario", desc: "Panel intuitivo para elegir fecha y profesional en segundos." },
+              { step: "03", title: "Disfruta el cambio", desc: "Ven a nuestro estudio y dejanos cuidar de tu piel." }
+            ].map((item, idx) => (
+              <div key={idx} className="space-y-6 group">
+                <span className="text-5xl font-serif text-white/5 group-hover:text-brand-primary/20 transition-colors duration-700">{item.step}</span>
+                <h4 className="text-xl font-bold">{item.title}</h4>
+                <p className="text-white/40 text-sm leading-relaxed max-w-[250px]">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Booking Section */}
+      <section id="agenda" ref={bookingRef} className="py-24 px-6 bg-brand-nude">
+        <div className="max-w-md mx-auto space-y-8">
+          <div className="text-center space-y-4">
+            <h2 className="text-4xl">Agenda tu <span className="italic">momento</span></h2>
+            <p className="text-sm font-light text-brand-dark/60">Selecciona el tratamiento y el horario que prefieras.</p>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="glass-card shadow-2xl p-8 rounded-[40px] space-y-8 border-white/80"
+          >
+            {status === "success" && lastBooking ? (
+              <SuccessStep lastBooking={lastBooking} />
+            ) : (
+              <form onSubmit={handleBook} className="space-y-10">
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-brand-dark/40 ml-1">Servicio</label>
+                    <select
+                      value={service?.id ?? ""}
+                      onChange={(e) => {
+                        const id = Number(e.target.value);
+                        setService(services.find((s) => s.id === id) ?? null);
+                        setProfessional(null);
+                      }}
+                      className="w-full bg-transparent border-b border-brand-dark/10 py-4 px-1 focus:border-brand-primary outline-none text-sm transition-all"
+                    >
+                      <option value="">¿Que tratamiento deseas?</option>
+                      {services.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} — (S/. {s.price})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {service && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-2">
+                      <label className="text-[10px] uppercase tracking-widest font-bold text-brand-dark/40 ml-1">Especialista</label>
+                      <select
+                        value={professional?.id ?? ""}
+                        onChange={(e) => {
+                          const id = Number(e.target.value);
+                          setProfessional(id ? professionals.find((p) => p.id === id) ?? null : null);
+                        }}
+                        className="w-full bg-transparent border-b border-brand-dark/10 py-4 px-1 focus:border-brand-primary outline-none text-sm transition-all"
+                      >
+                        <option value="">Cualquier disponible</option>
+                        {professionals.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </motion.div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <label className="text-[10px] uppercase tracking-widest font-bold text-brand-dark/40 ml-1 flex items-center gap-2">
+                        <Calendar className="w-3 h-3" /> Fecha
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={date}
+                        onChange={(e) => {
+                          setDate(e.target.value);
+                          setSlot("");
+                        }}
+                        min={new Date().toISOString().slice(0, 10)}
+                        className="w-full bg-transparent border-b border-brand-dark/10 py-4 px-1 focus:border-brand-primary outline-none text-sm transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] uppercase tracking-widest font-bold text-brand-dark/40 ml-1 flex items-center gap-2">
+                        <Clock className="w-3 h-3" /> Hora
+                      </label>
+                      <div className="relative">
+                        <select
+                          required
+                          disabled={!date || !service || loadAvail}
+                          value={slot}
+                          onChange={(e) => setSlot(e.target.value)}
+                          className="w-full bg-transparent border-b border-brand-dark/10 py-4 px-1 focus:border-brand-primary outline-none text-sm appearance-none disabled:opacity-30 transition-all"
+                        >
+                          <option value="">{loadAvail ? "Buscando..." : "Elegir"}</option>
+                          {availability.map(a => (
+                            <option key={a.time} value={a.time}>{a.time}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none opacity-30" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-8 pt-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] uppercase tracking-widest font-bold text-brand-dark/40 ml-1">Nombre Completo</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Como te llamamos?"
+                        value={clientName}
+                        onChange={(e) => setClientName(e.target.value)}
+                        className="w-full bg-transparent border-b border-brand-dark/10 py-4 px-1 focus:border-brand-primary outline-none text-sm placeholder:text-brand-dark/20"
+                      />
+                    </div>
+                    <div className="flex gap-8">
+                      <div className="flex-1 space-y-2">
+                        <label className="text-[10px] uppercase tracking-widest font-bold text-brand-dark/40 ml-1">WhatsApp</label>
+                        <div className="relative">
+                          <span className="absolute left-1 top-1/2 -translate-y-1/2 text-xs font-bold opacity-30">+51</span>
+                          <input
+                            type="tel"
+                            required
+                            placeholder="999 888 777"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
+                            className="w-full bg-transparent border-b border-brand-dark/10 py-4 pl-10 pr-1 focus:border-brand-primary outline-none text-sm placeholder:text-brand-dark/20"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || !service || !date || !slot}
+                  className="premium-button w-full bg-brand-dark text-white py-6 rounded-3xl font-bold tracking-[0.1em] text-sm flex items-center justify-center gap-3 active:scale-[0.98] transition-all"
+                >
                   {loading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
-                    <>
-                      Confirmar Cita <ChevronRight className="w-4 h-4" />
-                    </>
+                    "Confirmar Reserva"
                   )}
-                </div>
-              </button>
-            </form>
-          )}
-
-          <AnimatePresence>
-            {status === "error" && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="mt-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-800 text-sm"
-              >
-                <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-                <p>{errorMessage}</p>
-              </motion.div>
+                </button>
+              </form>
             )}
-          </AnimatePresence>
-        </motion.div>
 
-        <div className="mt-12 text-center space-y-4">
-          <div className="flex justify-center gap-8 text-[10px] uppercase tracking-[0.2em] text-[#2C2C2C]/40">
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3" /> Alta Gama
-            </span>
-            <span>•</span>
-            <span>Cuidado Experto</span>
-          </div>
-          <p className="text-[11px] text-[#2C2C2C]/30">Lima, Perú — Cuidado de la piel profesional</p>
-          <p className="text-[10px] text-[#2C2C2C]/25">
-            <Link to="/admin" className="underline hover:text-[#2C2C2C]/50">Admin</Link>
-          </p>
+            <AnimatePresence>
+              {status === "error" && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="mt-6 p-5 bg-red-50 border border-red-100 rounded-[30px] flex items-center gap-4 text-red-900 text-xs"
+                >
+                  <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+                  <p className="leading-relaxed">{errorMessage}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </div>
-      </main>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-20 px-6 bg-white border-t border-brand-nude">
+        <div className="max-w-md mx-auto text-center space-y-12">
+          <div className="space-y-4">
+            <h3 className="text-3xl font-serif italic">Glow Skins</h3>
+            <p className="text-[10px] uppercase tracking-[0.3em] font-bold opacity-30">Pureza • Brillo • Personalidad</p>
+          </div>
+
+          <div className="flex flex-col gap-6 text-[11px] font-bold uppercase tracking-[0.15em] opacity-40">
+            <div className="flex items-center justify-center gap-3">
+              <MapPin className="w-3 h-3 text-brand-primary" /> Miraflores, Lima
+            </div>
+            <p>Lunes a Sabado: 9AM - 8PM</p>
+            <p>Copyright © 2024 Glow Skins</p>
+          </div>
+
+          <div className="pt-8 border-t border-brand-dark/5">
+            <Link to="/admin" className="text-[9px] uppercase tracking-[0.4em] font-black hover:text-brand-primary transition-colors">Panel Admin</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function SuccessStep({
-  lastBooking,
-}: {
-  lastBooking: {
-    clientName: string;
-    serviceName: string;
-    professionalName?: string | null;
-    date: string;
-    time: string;
-    token?: string;
-  };
-}) {
-  const link = lastBooking.token ? `${window.location.origin}/cita/${lastBooking.token}` : null;
+function SuccessStep({ lastBooking }: { lastBooking: any }) {
   const businessPhone = "51906959989";
-
   const sendWhatsApp = () => {
-    const stylistLine = lastBooking.professionalName
-      ? `👩‍🦰 *Estilista:* ${lastBooking.professionalName}%0A`
-      : "";
     const msg =
       `✨ *GLOW SKINS BY NILDA REYES* ✨%0A` +
       `━━━━━━━━━━━━━━━━━━━━━━%0A` +
-      `🗓️ *¡Tu cita está confirmada!*%0A%0A` +
-      `👤 *Clienta:* ${lastBooking.clientName}%0A` +
+      `🗓️ *Tu cita esta confirmada*%0A%0A` +
+      `👤 *Cliente:* ${lastBooking.clientName}%0A` +
       `⭐ *Servicio:* ${lastBooking.serviceName}%0A` +
-      stylistLine +
+      (lastBooking.professionalName ? `👩‍🦰 *Especialista:* ${lastBooking.professionalName}%0A` : "") +
       `📅 *Fecha:* ${lastBooking.date}%0A` +
       `⏰ *Hora:* ${lastBooking.time}%0A%0A` +
       `✅ *Estado:* Confirmado%0A%0A` +
-      `_¡Nos emociona verte pronto! Tu momento de autocuidado está reservado._ 💆‍♀️✨%0A` +
-      `━━━━━━━━━━━━━━━━━━━━━━%0A` +
       `Te esperamos en Glow Skins.`;
     window.open(`https://wa.me/${businessPhone}?text=${msg}`, "_blank");
   };
 
   return (
-    <div className="p-6 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl space-y-5 shadow-sm">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden />
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+      <div className="text-center space-y-3">
+        <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100">
+          <CheckCircle2 className="w-8 h-8 text-emerald-500" />
         </div>
-        <div>
-          <h2 className="text-lg font-semibold text-emerald-900">¡Cita agendada!</h2>
-          <p className="text-sm text-emerald-800/90">Revisa los datos abajo y guarda el link para cancelar o reprogramar.</p>
+        <h2 className="text-2xl">¡Tu cita esta agendada!</h2>
+        <p className="text-sm font-light text-brand-dark/50 italic">Tu momento de autocuidado esta reservado.</p>
+      </div>
+
+      <div className="bg-brand-beige rounded-[30px] p-6 space-y-4 border border-white">
+        <div className="flex justify-between text-xs">
+          <span className="opacity-40 uppercase font-bold tracking-tighter">Servicio</span>
+          <span className="font-bold">{lastBooking.serviceName}</span>
+        </div>
+        <div className="flex justify-between text-xs">
+          <span className="opacity-40 uppercase font-bold tracking-tighter">Fecha y Hora</span>
+          <span className="font-bold">{lastBooking.date} • {lastBooking.time}</span>
         </div>
       </div>
-      <dl className="grid gap-2 rounded-xl bg-white/60 p-4 text-sm">
-        <div className="flex justify-between gap-2">
-          <dt className="text-[#2C2C2C]/60">Cliente</dt>
-          <dd className="font-medium text-[#2C2C2C]">{lastBooking.clientName}</dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-[#2C2C2C]/60">Servicio</dt>
-          <dd className="font-medium text-[#2C2C2C]">{lastBooking.serviceName}</dd>
-        </div>
-        {lastBooking.professionalName && (
-          <div className="flex justify-between gap-2">
-            <dt className="text-[#2C2C2C]/60">Estilista</dt>
-            <dd className="font-medium text-[#2C2C2C]">{lastBooking.professionalName}</dd>
-          </div>
-        )}
-        <div className="flex justify-between gap-2">
-          <dt className="text-[#2C2C2C]/60">Fecha y hora</dt>
-          <dd className="font-medium text-[#2C2C2C]">{lastBooking.date} · {lastBooking.time}</dd>
-        </div>
-      </dl>
-      {link && (
-        <p className="text-xs text-[#2C2C2C]/60">
-          Guarda este link para cancelar o reprogramar:{" "}
-          <a href={link} className="text-[#0d9488] underline break-all hover:text-[#0f766e]">
-            Ver mi cita
-          </a>
-        </p>
-      )}
+
       <button
         type="button"
         onClick={sendWhatsApp}
-        className="w-full py-3.5 rounded-xl bg-[#25D366] text-white text-sm font-semibold shadow-md hover:bg-[#20bd5a] active:scale-[0.98] transition-all"
+        className="premium-button w-full bg-[#25D366] text-white py-5 rounded-3xl font-bold text-sm shadow-xl shadow-emerald-500/10 active:scale-95 transition-all"
       >
-        Enviar confirmación por WhatsApp
+        Guardar en WhatsApp
+      </button>
+
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="w-full text-[10px] uppercase font-bold tracking-[0.2em] opacity-40 hover:opacity-100 transition-opacity"
+      >
+        Hacer otra reserva
       </button>
     </div>
   );
 }
-
