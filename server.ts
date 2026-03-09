@@ -109,30 +109,29 @@ function generateToken() {
 }
 
 async function ensureNoDoubleBooking(
-  professionalId: number | null | undefined,
-  startISO: string,
-  durationMinutes: number
+  startISO: string
 ) {
-  if (!professionalId) return;
   const start = new Date(startISO);
-  const end = addMinutes(start, durationMinutes || 60);
-  const sameDay = start.toISOString().slice(0, 10);
-  const existing = await getAppointments({
-    date: sameDay,
-    professionalId,
+
+  // Validar que sea hora en punto (:00)
+  if (start.getMinutes() !== 0) {
+    throw new Error("Las citas solo pueden programarse en intervalos de una hora (ej: 10:00).");
+  }
+
+  const startHour = start.getHours();
+  const dateStr = start.toISOString().slice(0, 10);
+
+  // Obtener todas las citas del día para bloqueo global
+  const existing = await getAppointments({ date: dateStr });
+
+  const hasConflict = existing.some((a: any) => {
+    if (a.status === 'cancelled') return false;
+    const aDate = new Date(a.dateTime);
+    return aDate.getHours() === startHour;
   });
-  const hasOverlap = existing.some((a: any) =>
-    areIntervalsOverlapping(
-      { start, end },
-      {
-        start: new Date(a.dateTime),
-        end: addMinutes(new Date(a.dateTime), a.durationMinutes || 60),
-      },
-      { inclusive: false }
-    )
-  );
-  if (hasOverlap) {
-    throw new Error("El profesional ya tiene una cita en ese horario.");
+
+  if (hasConflict) {
+    throw new Error("Este horario ya está reservado.");
   }
 }
 
@@ -347,13 +346,21 @@ app.get("/api/availability", async (req, res) => {
       for (const s of sched) {
         const [sh, sm] = s.start_time.split(":").map(Number);
         const [eh, em] = s.end_time.split(":").map(Number);
-        let min = sh * 60 + sm;
+
+        // Reservas solo cada hora (ej: 09:00, 10:00...)
+        // Si el horario empieza en 09:15, el primer hueco es 10:00
+        let startHour = sh + (sm > 0 ? 1 : 0);
+        let min = startHour * 60;
         const endMin = eh * 60 + em;
-        while (min + durationMin <= endMin) {
+
+        while (min + 60 <= endMin) {
           const h = Math.floor(min / 60);
           const m = min % 60;
-          slots.push({ time: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`, professionalId: pid });
-          min += 30;
+          slots.push({
+            time: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
+            professionalId: pid
+          });
+          min += 60; // Intervalos de 1 hora
         }
       }
     }
@@ -364,32 +371,31 @@ app.get("/api/availability", async (req, res) => {
     ]);
 
     const occupied = new Set<string>();
+
+    // Si hay CUALQUIER cita en esa hora, bloqueamos el slot globalmente 
+    // (según requerimiento de "bloqueado apenas tenga una cita")
     for (const b of booked) {
       const start = new Date(b.dateTime);
-      const endMin = (start.getHours() * 60 + start.getMinutes()) + (b.durationMinutes || 60);
-      for (let t = start.getHours() * 60 + start.getMinutes(); t < endMin; t += 30) {
-        const key = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
-        occupied.add(`${key}-${b.professional_id ?? "any"}`);
-      }
+      const startTotalMin = start.getHours() * 60 + start.getMinutes();
+      // Bloqueamos la hora completa de la cita
+      const key = `${Math.floor(startTotalMin / 60)}:00`;
+      occupied.add(key); // Bloqueo global por hora
     }
+
     for (const bl of blocked) {
       const [sh, sm] = bl.start_time.split(":").map(Number);
       const [eh, em] = bl.end_time.split(":").map(Number);
-      for (let t = sh * 60 + sm; t < eh * 60 + em; t += 30) {
-        const key = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
-        occupied.add(bl.professional_id ? `${key}-${bl.professional_id}` : key + "-all");
+      for (let t = sh * 60 + sm; t < eh * 60 + em; t += 60) {
+        const key = `${Math.floor(t / 60)}:00`;
+        occupied.add(key);
       }
     }
 
     const available = slots.filter((s) => {
-      const slotStart = s.time.split(":").map(Number);
-      const slotMin = slotStart[0] * 60 + slotStart[1];
-      const slotEnd = slotMin + durationMin;
-      for (let t = slotMin; t < slotEnd; t += 30) {
-        const k = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
-        if (occupied.has(`${k}-${s.professionalId}`) || occupied.has(`${k}-any`) || occupied.has(`${k}-all`)) return false;
-      }
-      return true;
+      const [sh, sm] = s.time.split(":").map(Number);
+      const key = `${sh}:00`;
+      // Si el slot está en occupied (por cualquier cita o bloqueo), no está disponible
+      return !occupied.has(key);
     });
 
     const byTime = new Map<string, number[]>();
@@ -425,11 +431,7 @@ app.post("/api/book", async (req, res) => {
   const token = generateToken();
 
   try {
-    await ensureNoDoubleBooking(
-      professionalId != null ? Number(professionalId) : null,
-      dateTime,
-      durationMinutes
-    );
+    await ensureNoDoubleBooking(dateTime);
   } catch (overlapError: any) {
     return res.status(400).json({ error: overlapError.message });
   }
@@ -549,11 +551,7 @@ app.post("/api/appointments", async (req, res) => {
   }
   const token = generateToken();
   try {
-    await ensureNoDoubleBooking(
-      professionalId != null ? Number(professionalId) : null,
-      dateTime,
-      durationMinutes
-    );
+    await ensureNoDoubleBooking(dateTime);
     await insertAppointment({
       clientName,
       phone,
@@ -604,6 +602,14 @@ app.patch("/api/appointments/:id/no-show", async (req, res) => {
   res.json({ ok: true });
 });
 
+app.patch("/api/appointments/:id/complete", async (req, res) => {
+  const id = Number(req.params.id);
+  const appt = await getAppointmentById(id);
+  if (!appt) return res.status(404).json({ error: "Not found" });
+  await updateAppointmentStatus(id, "completed");
+  res.json({ ok: true });
+});
+
 app.patch("/api/appointments/cancel-by-token", async (req, res) => {
   const { token } = req.body || {};
   if (!token) return res.status(400).json({ error: "Missing token" });
@@ -622,22 +628,38 @@ app.patch("/api/appointments/cancel-by-token", async (req, res) => {
 app.patch("/api/appointments/:id/reschedule", async (req, res) => {
   const { dateTime } = req.body || {};
   if (!dateTime) return res.status(400).json({ error: "Missing dateTime" });
-  const id = Number(req.params.id);
-  const appt = await getAppointmentById(id);
-  if (!appt) return res.status(404).json({ error: "Not found" });
-  await updateAppointmentDateTime(id, dateTime);
-  const updated = await getAppointmentById(id);
-  res.json(updated);
+  try {
+    const id = Number(req.params.id);
+    const appt = await getAppointmentById(id);
+    if (!appt) return res.status(404).json({ error: "Not found" });
+
+    // Validar nuevo horario
+    await ensureNoDoubleBooking(dateTime);
+
+    await updateAppointmentDateTime(id, dateTime);
+    const updated = await getAppointmentById(id);
+    res.json(updated);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
 });
 
 app.patch("/api/appointments/reschedule-by-token", async (req, res) => {
   const { token, dateTime } = req.body || {};
   if (!token || !dateTime) return res.status(400).json({ error: "Missing token or dateTime" });
-  const row = await getAppointmentByToken(token);
-  if (!row) return res.status(404).json({ error: "Not found" });
-  await updateAppointmentDateTime(row.id, dateTime);
-  const updated = await getAppointmentById(row.id);
-  res.json(updated);
+  try {
+    const row = await getAppointmentByToken(token);
+    if (!row) return res.status(404).json({ error: "Not found" });
+
+    // Validar nuevo horario
+    await ensureNoDoubleBooking(dateTime);
+
+    await updateAppointmentDateTime(row.id, dateTime);
+    const updated = await getAppointmentById(row.id);
+    res.json(updated);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
 });
 
 // List appointments (admin): ?date=YYYY-MM-DD (opcional) &professionalId=
