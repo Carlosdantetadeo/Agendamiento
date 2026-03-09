@@ -1008,14 +1008,18 @@ function NewAppointmentTab({ services, professionals, onDone }: { services: Serv
         </div>
         <div className="space-y-3">
           <label className="text-[10px] font-black uppercase tracking-widest opacity-30">Horario</label>
-          <input
-            type="time"
+          <select
             name="time"
             required
-            step="3600"
-            className="w-full bg-transparent border-b border-brand-dark/10 py-4 focus:border-brand-primary outline-none transition-all text-sm font-bold"
-          />
-          <p className="text-[9px] uppercase font-bold text-brand-primary/40 mt-1">Solo horas exactas (Ej: 14:00)</p>
+            className="w-full bg-transparent border-b border-brand-dark/10 py-4 focus:border-brand-primary outline-none transition-all text-sm font-bold appearance-none pr-12"
+          >
+            {Array.from({ length: 13 }).map((_, i) => {
+              const h = String(i + 8).padStart(2, "0");
+              const label = `${h}:00`;
+              return <option key={label} value={label}>{label}</option>;
+            })}
+          </select>
+          <p className="text-[9px] uppercase font-bold text-brand-primary/40 mt-1">Horas exactas para agendamiento premium</p>
         </div>
         <div className="space-y-3">
           <label className="text-[10px] font-black uppercase tracking-widest opacity-30">Nombre de la Clienta</label>

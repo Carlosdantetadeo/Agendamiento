@@ -205,14 +205,19 @@ export default function AppointmentPage() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-4">Nueva Hora</label>
-                    <input
-                      type="time"
+                    <select
                       required
-                      step="3600"
                       value={newTime}
                       onChange={(e) => setNewTime(e.target.value)}
-                      className="w-full bg-white border border-slate-200 py-4 px-6 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-brand-primary/5 transition-all"
-                    />
+                      className="w-full bg-white border border-slate-200 py-4 px-6 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-brand-primary/5 transition-all appearance-none"
+                    >
+                      <option value="">Seleccionar hora</option>
+                      {Array.from({ length: 13 }).map((_, i) => {
+                        const h = String(i + 8).padStart(2, "0");
+                        const label = `${h}:00`;
+                        return <option key={label} value={label}>{label}</option>;
+                      })}
+                    </select>
                   </div>
                   <button
                     type="submit"
