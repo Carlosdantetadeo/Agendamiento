@@ -22,7 +22,12 @@ import {
   Clock,
   ExternalLink,
   Save,
-  X
+  X,
+  History,
+  Phone,
+  Mail,
+  MoreVertical,
+  ArrowLeft
 } from "lucide-react";
 import type { Service, Professional, Appointment } from "../types";
 
@@ -222,6 +227,7 @@ function AgendaTab({
   setViewMode: (v: 'day' | 'week') => void;
 }) {
   const [professionalFilter, setProfessionalFilter] = useState<number | "all">("all");
+  const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
 
   const filteredAppointments =
     professionalFilter === "all"
@@ -229,6 +235,7 @@ function AgendaTab({
       : appointments.filter((a) => a.professional_id === professionalFilter);
 
   const projectedIncome = filteredAppointments.reduce((sum, a) => {
+    if (a.status === 'cancelled') return sum;
     const svc = services.find(s => s.id === a.service_id);
     return sum + (svc?.price || 0);
   }, 0);
@@ -243,191 +250,103 @@ function AgendaTab({
   const noShows = filteredAppointments.filter(a => a.status === "no-show").length;
 
   return (
-    <div className="space-y-20">
-      {/* Revenue Report Section - UX Enhanced */}
-      <section className="space-y-8">
-        <div className="flex items-center justify-between px-2">
-          <div className="space-y-1">
-            <h2 className="text-2xl font-serif">Balance del Periodo</h2>
-            <p className="text-[10px] font-black uppercase tracking-widest opacity-30">Criterio Financiero y UX</p>
+    <div className="space-y-8 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+      {/* Revenue Report Section - Functional & Clean */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-slate-100 pb-8">
+        {[
+          { label: "Expectativa", value: `S/. ${projectedIncome}`, sub: "Total agendado" },
+          { label: "Facturado", value: `S/. ${completedIncome}`, sub: "Citas cobradas" },
+          { label: "Ausencias", value: noShows, sub: "No asistieron" },
+        ].map((stat, i) => (
+          <div key={i} className="p-6 bg-slate-50 rounded-xl border border-slate-100">
+            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">{stat.label}</span>
+            <p className="text-3xl font-bold text-slate-900 tabular-nums">{stat.value}</p>
+            <p className="text-[10px] text-slate-400 mt-1">{stat.sub}</p>
           </div>
-          <div className="px-5 py-2 rounded-full bg-brand-primary/5 border border-brand-primary/10 text-[9px] font-black uppercase tracking-widest text-brand-primary">
-            Actualizado: {format(new Date(), "HH:mm")}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            { label: "Expectativa de Ingreso", value: `S/. ${projectedIncome}`, icon: Sparkles, color: "text-brand-primary", bg: "bg-brand-primary/5", sub: "Proyección total según agenda" },
-            { label: "Ingresos Facturados", value: `S/. ${completedIncome}`, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-50", sub: "Citas marcadas como realizadas" },
-            { label: "Tasa de Cancelación / Ausencia", value: `${noShows} Citas`, icon: AlertCircle, color: "text-amber-500", bg: "bg-amber-50", sub: "Citas perdidas o no asistidas" },
-          ].map((stat, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1, duration: 0.8 }}
-              className="glass_card_premium p-10 rounded-[3rem] border-white/60 space-y-6 shadow-sm relative overflow-hidden group hover:scale-[1.02] transition-all bg-white/40"
-            >
-              <div className={`absolute -top-12 -right-12 w-40 h-40 ${stat.bg} blur-[60px] opacity-50 group-hover:opacity-100 transition-all`} />
-              <div className="flex items-center justify-between relative z-10">
-                <div className={`w-12 h-12 rounded-full ${stat.bg} flex items-center justify-center transition-transform group-hover:rotate-12`}>
-                  <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                </div>
-                <span className="text-[9px] uppercase font-black tracking-[0.2em] opacity-30">{stat.label}</span>
-              </div>
-              <div className="relative z-10 space-y-1">
-                <p className="text-4xl font-serif tracking-tight tabular-nums">{stat.value}</p>
-                <p className="text-[10px] font-bold text-brand-dark/30 tracking-wide">{stat.sub}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+        ))}
       </section>
 
-      {/* Calendar View Section */}
-      <section className="space-y-10">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 px-2">
-          <div className="space-y-1">
-            <h2 className="text-2xl font-serif">Grilla de Agenda</h2>
-            <p className="text-[10px] font-black uppercase tracking-widest opacity-30">Visualización de Tiempo Real</p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-5">
-            <div className="relative group">
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="bg-white/60 backdrop-blur-xl border border-brand-dark/10 rounded-full px-10 py-4 text-[11px] font-black uppercase tracking-widest focus:outline-none focus:border-brand-primary transition-all shadow-sm pl-16 w-full sm:w-auto hover:bg-white"
-              />
-              <Calendar className="absolute left-7 top-1/2 -translate-y-1/2 w-4 h-4 opacity-30 group-focus-within:text-brand-primary group-focus-within:opacity-100 transition-all" />
-            </div>
-
-            <div className="relative group flex-1 sm:flex-none">
-              <select
-                value={professionalFilter}
-                onChange={(e) => setProfessionalFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
-                className="bg-white/60 backdrop-blur-xl border border-brand-dark/10 rounded-full px-10 py-4 text-[11px] font-black uppercase tracking-widest focus:outline-none focus:border-brand-primary transition-all shadow-sm appearance-none pr-16 w-full sm:w-auto hover:bg-white"
-              >
-                <option value="all">Todas las Especialistas</option>
-                {professionals.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-7 top-1/2 -translate-y-1/2 w-4 h-4 opacity-30 pointer-events-none group-focus-within:text-brand-primary group-focus-within:opacity-100 transition-all" />
-            </div>
-
+      {/* Calendar Grid Section */}
+      <section className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
+            />
             <button
               onClick={onRefresh}
-              className="w-14 h-14 rounded-full bg-brand-dark text-white flex items-center justify-center hover:bg-brand-primary transition-all duration-500 shadow-xl shadow-brand-dark/20 group active:scale-90"
+              className="p-2.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-brand-dark hover:text-white transition-all shadow-sm"
+              title="Actualizar"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-6 h-6 rotate-45 group-hover:rotate-0 transition-transform duration-700" />}
+              <Loader2 className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <select
+              value={professionalFilter}
+              onChange={(e) => setProfessionalFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
+              className="bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all appearance-none pr-10 relative"
+              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1rem' }}
+            >
+              <option value="all">Todas las Especialistas</option>
+              {professionals.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
           </div>
         </div>
 
-        <div className="glass-card rounded-[4rem] border-white/80 overflow-hidden shadow-2xl relative bg-white/20 backdrop-blur-3xl">
-          {/* Calendar Grid Headers */}
-          <div className="grid grid-cols-[100px_1fr] border-b border-brand-dark/5 bg-white/40">
-            <div className="p-6 text-[10px] font-black uppercase tracking-widest opacity-30 border-r border-brand-dark/5 text-center italic">Tiempo</div>
-            <div className="p-6 text-[10px] font-black uppercase tracking-widest opacity-30 flex items-center gap-3">
-              <Clock className="w-3 h-3" /> Estado de la Sesión
-            </div>
+        {/* The Actual Calendar Grid */}
+        <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+          <div className="grid grid-cols-[80px_1fr] bg-slate-100 border-b border-slate-200">
+            <div className="p-3 text-[10px] font-bold uppercase text-slate-500 text-center border-r border-slate-200">Hora</div>
+            <div className="p-3 text-[10px] font-bold uppercase text-slate-500 pl-6">Citas y Disponibilidad</div>
           </div>
 
-          <div className="divide-y divide-brand-dark/5 relative">
-            {loading && (
-              <div className="absolute inset-0 z-20 bg-white/40 backdrop-blur-sm flex flex-col items-center justify-center gap-6">
-                <div className="w-12 h-12 border-2 border-brand-dark border-t-transparent rounded-full animate-spin" />
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Refrescando Grilla...</p>
-              </div>
-            )}
-
-            {/* Generate Hourly Slots */}
+          <div className="relative">
             {Array.from({ length: 13 }).map((_, i) => {
               const hour = i + 8; // 08:00 to 20:00
               const timeStr = `${String(hour).padStart(2, '0')}:00`;
-
-              // Find appointment for this hour
-              const appt = filteredAppointments.find(a => format(new Date(a.dateTime), "HH:mm") === timeStr);
+              const appts = filteredAppointments.filter(a => format(new Date(a.dateTime), "HH:mm") === timeStr);
 
               return (
-                <div key={timeStr} className="grid grid-cols-[100px_1fr] min-h-[120px] group">
-                  {/* Time Label */}
-                  <div className="p-8 border-r border-brand-dark/5 bg-white/10 flex flex-col items-center justify-start group-hover:bg-white/30 transition-colors">
-                    <span className="text-2xl font-serif text-brand-dark/80">{timeStr}</span>
+                <div key={timeStr} className="grid grid-cols-[80px_1fr] min-h-[80px] border-b border-slate-100 last:border-0 relative">
+                  <div className="p-4 border-r border-slate-200 bg-white flex items-start justify-center">
+                    <span className="text-sm font-bold text-slate-400 tabular-nums">{timeStr}</span>
                   </div>
 
-                  {/* Slot Content */}
-                  <div className="p-5 flex items-stretch">
-                    {appt ? (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className={`w-full rounded-[2.5rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-8 border transition-all shadow-sm
-                            ${appt.status === 'completed' ? 'bg-emerald-50/50 border-emerald-100' :
-                            appt.status === 'no-show' ? 'bg-amber-50/50 border-amber-100' :
-                              'bg-white border-white shadow-xl shadow-brand-dark/5'}
+                  <div className="p-2 flex gap-2 overflow-x-auto bg-white/50 min-h-[80px]">
+                    {appts.length > 0 ? (
+                      appts.map(appt => (
+                        <button
+                          key={appt.id}
+                          onClick={() => setSelectedAppt(appt)}
+                          className={`flex-1 min-w-[200px] max-w-[400px] p-4 rounded-xl border text-left transition-all hover:shadow-md hover:scale-[1.01] active:scale-[0.99]
+                            ${appt.status === 'completed' ? 'bg-emerald-50 border-emerald-100' :
+                              appt.status === 'no-show' ? 'bg-amber-50 border-amber-100' :
+                                'bg-brand-dark/5 border-slate-200'}
                           `}
-                      >
-                        <div className="flex items-center gap-8">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-3">
-                              <h4 className="font-black text-lg tracking-tight uppercase">{appt.clientName}</h4>
-                              <Link to={`/cita/${appt.token}`} target="_blank" className="w-8 h-8 rounded-full bg-brand-dark/3 flex items-center justify-center hover:bg-brand-dark hover:text-white transition-all">
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </Link>
-                            </div>
-                            <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest opacity-40">
-                              <span className="text-brand-primary">{appt.serviceName}</span>
-                              <span>•</span>
-                              <span className="italic">{appt.professionalName || "Especialista Glow"}</span>
-                            </div>
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-bold text-sm text-slate-900 line-clamp-1">{appt.clientName}</h4>
+                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${appt.status === 'completed' ? 'bg-emerald-500 text-white' :
+                              appt.status === 'no-show' ? 'bg-amber-500 text-white' :
+                                'bg-slate-400 text-white'
+                              }`}>
+                              {appt.status}
+                            </span>
                           </div>
-                        </div>
-
-                        <div className="flex items-center gap-6">
-                          <span className={`px-6 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${appt.status === 'completed' ? 'bg-white text-emerald-600' :
-                              appt.status === 'no-show' ? 'bg-white text-amber-600' :
-                                'bg-brand-dark text-white'
-                            }`}>
-                            {appt.status === 'confirmed' ? 'Ocupado / Pendiente' : appt.status === 'completed' ? 'Finalizada' : 'Ausencia'}
-                          </span>
-
-                          <div className="flex gap-2">
-                            {appt.status === 'confirmed' && (
-                              <>
-                                <button
-                                  onClick={async () => {
-                                    if (!confirm("¿Marcar como COMPLETADA?")) return;
-                                    await fetch(`/api/appointments/${appt.id}/complete`, { method: "PATCH" });
-                                    onRefresh();
-                                  }}
-                                  className="w-12 h-12 rounded-full border border-emerald-100 bg-white flex items-center justify-center text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all"
-                                  title="Completar"
-                                >
-                                  <CheckCircle2 className="w-5 h-5" />
-                                </button>
-                                <button
-                                  onClick={async () => {
-                                    if (!confirm("¿Marcar como NO ASISTIÓ?")) return;
-                                    await fetch(`/api/appointments/${appt.id}/no-show`, { method: "PATCH" });
-                                    onRefresh();
-                                  }}
-                                  className="w-12 h-12 rounded-full border border-amber-100 bg-white flex items-center justify-center text-amber-500 hover:bg-amber-500 hover:text-white transition-all"
-                                  title="No-show"
-                                >
-                                  <AlertCircle className="w-5 h-5" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </motion.div>
+                          <p className="text-[10px] font-bold text-brand-primary truncate uppercase tracking-wider">{appt.serviceName}</p>
+                          <p className="text-[9px] text-slate-400 mt-1 italic">{appt.professionalName || "Glow Staff"}</p>
+                        </button>
+                      ))
                     ) : (
-                      <div className="w-full h-full border-2 border-dashed border-brand-dark/5 rounded-[2.5rem] flex items-center justify-center group/btn hover:border-brand-primary/20 hover:bg-brand-primary/[0.02] transition-all">
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-10 group-hover/btn:opacity-40 transition-opacity">Espacio Disponible</span>
+                      <div className="flex-1 border border-dashed border-slate-200 rounded-xl flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-white/30">
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Disponible</span>
                       </div>
                     )}
                   </div>
@@ -437,6 +356,114 @@ function AgendaTab({
           </div>
         </div>
       </section>
+
+      {/* Appointment Detail Modal */}
+      <AnimatePresence>
+        {selectedAppt && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden border border-slate-200"
+            >
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-brand-dark text-white flex items-center justify-center">
+                    <History className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">Detalle de la Cita</h3>
+                    <p className="text-xs text-slate-400 font-medium">Historial y estado actual</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedAppt(null)} className="w-10 h-10 rounded-full hover:bg-slate-200 flex items-center justify-center transition-colors">
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-8">
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Clienta</span>
+                    <p className="text-lg font-bold text-slate-900">{selectedAppt.clientName}</p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <a href={`tel:${selectedAppt.phone}`} className="flex items-center gap-1.5 text-xs font-bold text-brand-primary hover:underline">
+                        <Phone className="w-3 h-3" /> {selectedAppt.phone}
+                      </a>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Servicio</span>
+                    <p className="text-lg font-bold text-slate-900 text-brand-primary">{selectedAppt.serviceName}</p>
+                    <p className="text-xs text-slate-400 font-medium italic mt-1">{selectedAppt.professionalName || "Especialista Glow"}</p>
+                  </div>
+                </div>
+
+                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-500 font-medium">Fecha</span>
+                    <span className="font-bold underline tabular-nums">{format(new Date(selectedAppt.dateTime), "dd/MM/yyyy")}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-500 font-medium">Horario</span>
+                    <span className="font-bold tabular-nums italic text-lg">{format(new Date(selectedAppt.dateTime), "HH:mm")}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm pt-4 border-t border-slate-200">
+                    <span className="text-slate-500 font-medium">Estado</span>
+                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${selectedAppt.status === 'completed' ? 'bg-emerald-500 text-white' :
+                      selectedAppt.status === 'no-show' ? 'bg-amber-500 text-white' :
+                        'bg-brand-dark text-white'
+                      }`}>
+                      {selectedAppt.status}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  {selectedAppt.status === 'confirmed' && (
+                    <>
+                      <button
+                        onClick={async () => {
+                          await fetch(`/api/appointments/${selectedAppt.id}/complete`, { method: "PATCH" });
+                          onRefresh();
+                          setSelectedAppt(null);
+                        }}
+                        className="flex-1 bg-emerald-500 text-white font-bold py-4 rounded-xl text-xs uppercase tracking-widest hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4" /> Marcar Realizada
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await fetch(`/api/appointments/${selectedAppt.id}/no-show`, { method: "PATCH" });
+                          onRefresh();
+                          setSelectedAppt(null);
+                        }}
+                        className="flex-1 bg-amber-500 text-white font-bold py-4 rounded-xl text-xs uppercase tracking-widest hover:bg-amber-600 transition-colors shadow-lg shadow-amber-500/10 flex items-center justify-center gap-2"
+                      >
+                        <AlertCircle className="w-4 h-4" /> Marcar Ausencia
+                      </button>
+                    </>
+                  )}
+                  {selectedAppt.status !== 'cancelled' && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm("¿Seguro que deseas cancelar esta cita definitivamente?")) return;
+                        await fetch(`/api/appointments/${selectedAppt.id}/cancel`, { method: "PATCH" });
+                        onRefresh();
+                        setSelectedAppt(null);
+                      }}
+                      className="flex-1 border-2 border-slate-100 text-slate-400 font-bold py-4 rounded-xl text-xs uppercase tracking-widest hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all"
+                    >
+                      Cancelar Cita
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
