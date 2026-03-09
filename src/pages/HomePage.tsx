@@ -231,8 +231,8 @@ export default function HomePage() {
                             key={a.time}
                             onClick={() => setSlot(a.time)}
                             className={`py-3 rounded-xl text-xs font-bold transition-all border ${slot === a.time
-                                ? 'bg-brand-dark text-white border-brand-dark'
-                                : 'bg-white text-slate-600 border-slate-200 hover:border-brand-primary'
+                              ? 'bg-brand-dark text-white border-brand-dark'
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-brand-primary'
                               }`}
                           >
                             {a.time}
@@ -290,9 +290,9 @@ export default function HomePage() {
         )}
       </main>
 
-      <footer className="p-12 border-t border-slate-100 text-center">
-        <p className="text-[10px] font-bold uppercase text-slate-300 tracking-[0.5em]">Glow Skins by Nilda Reyes</p>
-        <Link to="/admin" className="text-[8px] font-bold uppercase text-slate-200 mt-8 block hover:text-slate-400 underline">Panel Privado</Link>
+      <footer className="p-16 border-t border-slate-100 text-center space-y-4">
+        <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.5em]">Glow Skins by Nilda Reyes</p>
+        <p className="text-[9px] font-bold text-slate-200 italic">Expertos en el cuidado de tu piel</p>
       </footer>
     </div>
   );
@@ -300,57 +300,95 @@ export default function HomePage() {
 
 function SuccessStep({ lastBooking }: { lastBooking: any }) {
   const businessPhone = "51906959989";
+  const manageUrl = `${window.location.origin}/cita/${lastBooking.token}`;
+
   const sendWhatsApp = () => {
     const msg =
       `✨ *GLOW SKINS BY NILDA REYES* ✨%0A` +
       `━━━━━━━━━━━━━━━━━━━━━━%0A` +
-      `🗓️ *Tu cita esta confirmada*%0A%0A` +
+      `🗓️ *TU CITA ESTÁ CONFIRMADA*%0A%0A` +
       `👤 *Cliente:* ${lastBooking.clientName}%0A` +
       `⭐ *Servicio:* ${lastBooking.serviceName}%0A` +
       (lastBooking.professionalName ? `👩‍🦰 *Especialista:* ${lastBooking.professionalName}%0A` : "") +
       `📅 *Fecha:* ${lastBooking.date}%0A` +
       `⏰ *Hora:* ${lastBooking.time}%0A%0A` +
-      `✅ *Estado:* Confirmado%0A%0A` +
-      `Te esperamos en Glow Skins.`;
+      `✅ *Estado:* Confirmado%0A` +
+      `━━━━━━━━━━━━━━━━━━━━━━%0A%0A` +
+      `🔗 *Gestionar Cita (Cancelar/Reprogramar):*%0A${manageUrl}%0A%0A` +
+      `📍 *Ubicación:* Glow Skins Studio%0A` +
+      `¡Te esperamos para consentirte!`;
     window.open(`https://wa.me/${businessPhone}?text=${msg}`, "_blank");
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-      <div className="text-center space-y-3">
-        <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100">
-          <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="space-y-10 py-8"
+    >
+      <div className="text-center space-y-6">
+        <div className="w-24 h-24 bg-brand-primary/10 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-brand-primary/20 relative">
+          <div className="absolute inset-0 bg-brand-primary/5 animate-ping rounded-[2.5rem]" />
+          <CheckCircle2 className="w-10 h-10 text-brand-primary relative z-10" />
         </div>
-        <h2 className="text-2xl">¡Tu cita esta agendada!</h2>
-        <p className="text-sm font-light text-brand-dark/50 italic">Tu momento de autocuidado esta reservado.</p>
-      </div>
-
-      <div className="bg-brand-beige rounded-[30px] p-6 space-y-4 border border-white">
-        <div className="flex justify-between text-xs">
-          <span className="opacity-40 uppercase font-bold tracking-tighter">Servicio</span>
-          <span className="font-bold">{lastBooking.serviceName}</span>
-        </div>
-        <div className="flex justify-between text-xs">
-          <span className="opacity-40 uppercase font-bold tracking-tighter">Fecha y Hora</span>
-          <span className="font-bold">{lastBooking.date} • {lastBooking.time}</span>
+        <div className="space-y-2">
+          <h2 className="text-3xl font-black tracking-tight text-slate-900">¡Reserva Exitosa!</h2>
+          <p className="text-slate-500 font-medium">Hemos reservado tu espacio de bienestar.</p>
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={sendWhatsApp}
-        className="premium-button w-full bg-[#25D366] text-white py-5 rounded-3xl font-bold text-sm shadow-xl shadow-emerald-500/10 active:scale-95 transition-all"
-      >
-        Guardar en WhatsApp
-      </button>
+      <div className="bg-slate-50 rounded-[3rem] p-10 space-y-6 border border-slate-100 shadow-xl shadow-slate-200/50">
+        <div className="grid grid-cols-2 gap-8 text-sm">
+          <div className="space-y-1">
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block">Servicio</span>
+            <p className="font-bold text-slate-900">{lastBooking.serviceName}</p>
+          </div>
+          <div className="space-y-1 text-right">
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block">Horario</span>
+            <p className="font-bold text-slate-900">{lastBooking.time}</p>
+          </div>
+          <div className="space-y-1">
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block">Fecha</span>
+            <p className="font-bold text-slate-900">{lastBooking.date}</p>
+          </div>
+          <div className="space-y-1 text-right">
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block">Estado</span>
+            <span className="bg-emerald-500 text-white text-[8px] font-black uppercase px-3 py-1 rounded-full tracking-widest">Confirmado</span>
+          </div>
+        </div>
 
-      <button
-        type="button"
-        onClick={() => window.location.reload()}
-        className="w-full text-[10px] uppercase font-bold tracking-[0.2em] opacity-40 hover:opacity-100 transition-opacity"
-      >
-        Hacer otra reserva
-      </button>
-    </div>
+        <div className="pt-6 border-t border-slate-200 space-y-4">
+          <p className="text-[10px] text-slate-400 font-medium text-center italic">Recuerda llegar 10 minutos antes a tu cita.</p>
+          <div className="flex flex-col gap-3">
+            <a
+              href={manageUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-center text-[10px] font-black uppercase text-brand-primary tracking-widest hover:underline"
+            >
+              Gestionar mi reserva (Cancelar/Cambiar)
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <button
+          type="button"
+          onClick={sendWhatsApp}
+          className="w-full bg-[#25D366] text-white py-6 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-2xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+        >
+          Enviar Comprobante por WhatsApp
+        </button>
+
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="w-full text-[10px] uppercase font-black text-slate-300 tracking-[0.4em] hover:text-brand-dark transition-all py-4"
+        >
+          Hacer otra reserva
+        </button>
+      </div>
+    </motion.div>
   );
 }

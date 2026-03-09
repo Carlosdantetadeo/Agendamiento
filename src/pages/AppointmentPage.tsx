@@ -20,14 +20,15 @@ export default function AppointmentPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [action, setAction] = useState<"idle" | "cancelling" | "rescheduling" | "done">("idle");
-  const [newDateTime, setNewDateTime] = useState("");
+  const [newDate, setNewDate] = useState("");
+  const [newTime, setNewTime] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (!token) return;
     fetch(`/api/appointments/by-token/${token}`)
       .then((r) => {
-        if (!r.ok) throw new Error("Cita no encontrada");
+        if (!r.ok) throw new Error("No encontramos tu cita. Por favor verifica el enlace.");
         return r.json();
       })
       .then(setAppt)
@@ -37,6 +38,8 @@ export default function AppointmentPage() {
 
   const handleCancel = async () => {
     if (!token) return;
+    if (!confirm("¿Estás segura que deseas cancelar tu cita? Esta acción no se puede deshacer.")) return;
+
     setAction("cancelling");
     try {
       const res = await fetch("/api/appointments/cancel-by-token", {
@@ -45,8 +48,8 @@ export default function AppointmentPage() {
         body: JSON.stringify({ token }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al cancelar");
-      setMessage("Cita cancelada correctamente.");
+      if (!res.ok) throw new Error(data.error || "No se pudo cancelar la cita.");
+      setMessage("Tu cita ha sido cancelada exitosamente.");
       setAppt((p) => (p ? { ...p, status: "cancelled" } : null));
       setAction("done");
     } catch (e: any) {
@@ -57,19 +60,23 @@ export default function AppointmentPage() {
 
   const handleReschedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !newDateTime) return;
+    if (!token || !newDate || !newTime) return;
+
     setAction("rescheduling");
     try {
+      const dateTime = new Date(`${newDate}T${newTime}`).toISOString();
       const res = await fetch("/api/appointments/reschedule-by-token", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, dateTime: new Date(newDateTime).toISOString() }),
+        body: JSON.stringify({ token, dateTime }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al reprogramar");
+      if (!res.ok) throw new Error(data.error || "El horario seleccionado no está disponible.");
+
       setAppt((p) => (p ? { ...p, dateTime: data.dateTime } : null));
-      setMessage("Cita reprogramada correctamente.");
-      setNewDateTime("");
+      setMessage("¡Tu cita ha sido reprogramada con éxito!");
+      setNewDate("");
+      setNewTime("");
       setAction("done");
     } catch (e: any) {
       setMessage(e.message);
@@ -79,104 +86,188 @@ export default function AppointmentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FDFBF9] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#2C2C2C]/50" />
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
+        <Loader2 className="w-10 h-10 animate-spin text-brand-primary" />
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Cargando tu sesión...</p>
       </div>
     );
   }
+
   if (error || !appt) {
     return (
-      <div className="min-h-screen bg-[#FDFBF9] flex items-center justify-center p-6">
-        <div className="bg-white/80 border border-[#F3EFEC] rounded-2xl p-8 max-w-md text-center">
-          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-          <p className="text-[#2C2C2C]">{error || "Cita no encontrada"}</p>
-        </div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-8">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white border border-slate-100 rounded-[3rem] p-12 max-w-sm text-center shadow-2xl shadow-slate-200/50"
+        >
+          <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-10 h-10 text-amber-500" />
+          </div>
+          <h2 className="text-xl font-black text-slate-900 mb-2">Lo sentimos</h2>
+          <p className="text-slate-500 text-sm font-medium leading-relaxed mb-8">{error || "Cita no encontrada"}</p>
+          <a href="/" className="inline-block w-full py-4 bg-brand-dark text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-brand-dark/20">Ir al inicio</a>
+        </motion.div>
       </div>
     );
   }
 
   const dt = new Date(appt.dateTime);
-  const dateStr = dt.toLocaleDateString("es-PE", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-  const timeStr = dt.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const isPending = appt.status === "pending";
 
   return (
-    <div className="min-h-screen bg-[#FDFBF9] text-[#2C2C2C] font-sans">
-      <header className="pt-12 pb-6 px-6 text-center">
-        <h1 className="text-2xl font-serif italic">Glow Skins</h1>
-        <p className="text-[10px] uppercase tracking-widest text-[#2C2C2C]/60 mt-1">Tu cita</p>
+    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-brand-primary/10">
+      <header className="p-10 sticky top-0 bg-white/80 backdrop-blur-xl border-b border-slate-100 z-50">
+        <div className="max-w-xl mx-auto flex items-center justify-between">
+          <h1 className="text-xl font-black tracking-tighter uppercase italic">Glow Skins</h1>
+          <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-full tracking-widest ${appt.status === 'cancelled' ? 'bg-red-500 text-white' :
+            appt.status === 'completed' ? 'bg-emerald-500 text-white' :
+              'bg-brand-primary text-white animate-pulse'
+            }`}>
+            {appt.status}
+          </span>
+        </div>
       </header>
 
-      <main className="max-w-md mx-auto px-6 pb-20">
+      <main className="max-w-xl mx-auto p-8 pt-12 space-y-12 pb-24">
+        <section className="space-y-4 text-center">
+          <h2 className="text-4xl font-black text-slate-900 tracking-tight">Gestionar Reserva</h2>
+          <p className="text-slate-500 font-medium">Aquí puedes ver los detalles o modificar tu cita.</p>
+        </section>
+
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white/50 border border-[#F3EFEC] rounded-3xl p-8 shadow-sm space-y-6"
+          className="bg-slate-50 rounded-[3.5rem] p-12 border border-slate-100 shadow-2xl shadow-slate-200/50 space-y-10"
         >
-          {appt.status !== "pending" ? (
-            <p className="text-center text-[#2C2C2C]/70">Esta cita ya no está activa (cancelada o completada).</p>
-          ) : (
-            <>
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-[#2C2C2C]/50">Cliente</p>
-                <p className="font-medium">{appt.clientName}</p>
+          {/* Appointment Identity Card */}
+          <div className="space-y-8">
+            <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Clienta</label>
+                <p className="text-xl font-bold">{appt.clientName}</p>
               </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-[#2C2C2C]/50">Servicio</p>
-                <p className="font-medium">{appt.serviceName || appt.treatment}</p>
-                {appt.professionalName && <p className="text-sm text-[#2C2C2C]/70">Con {appt.professionalName}</p>}
+              <div className="space-y-1 text-right">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Tratamiento</label>
+                <p className="text-xl font-bold text-brand-primary">{appt.serviceName || appt.treatment}</p>
               </div>
-              <div className="flex items-center gap-3 text-[#2C2C2C]/80">
-                <Calendar className="w-4 h-4" />
-                <span>{dateStr}</span>
-              </div>
-              <div className="flex items-center gap-3 text-[#2C2C2C]/80">
-                <Clock className="w-4 h-4" />
-                <span>{timeStr}</span>
-              </div>
+            </div>
 
-              {message && (
-                <div className={`p-4 rounded-xl text-sm ${action === "done" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
-                  {message}
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm grid grid-cols-2 gap-6 items-center">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-brand-primary" />
                 </div>
-              )}
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fecha</p>
+                  <p className="text-sm font-bold">{dt.toLocaleDateString("es-PE", { day: '2-digit', month: 'long' })}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 border-l border-slate-100 pl-6">
+                <div className="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-brand-primary" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Hora</p>
+                  <p className="text-sm font-bold">{dt.toLocaleTimeString("es-PE", { hour: '2-digit', minute: '2-digit', hour12: false })}</p>
+                </div>
+              </div>
+            </div>
+          </div>
 
-              <div className="flex flex-col gap-3">
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  disabled={action === "cancelling"}
-                  className="w-full py-3 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-70 flex items-center justify-center gap-2"
-                >
-                  {action === "cancelling" ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                  Cancelar cita
-                </button>
+          {message && (
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className={`p-6 rounded-3xl text-sm font-bold text-center flex items-center justify-center gap-3 ${action === "done" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"
+                }`}
+            >
+              {action === "done" ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+              {message}
+            </motion.div>
+          )}
 
-                <form onSubmit={handleReschedule} className="space-y-2">
-                  <label className="text-[10px] uppercase tracking-widest text-[#2C2C2C]/50 block">Reprogramar (nueva fecha y hora)</label>
-                  <input
-                    type="datetime-local"
-                    value={newDateTime}
-                    onChange={(e) => setNewDateTime(e.target.value)}
-                    className="w-full bg-[#F3EFEC]/30 border border-[#2C2C2C]/10 py-2 px-3 rounded-lg outline-none focus:border-[#2C2C2C]"
-                  />
+          {isPending && action !== "done" && (
+            <div className="space-y-8 pt-6 border-t border-slate-200">
+              <div className="space-y-6">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest text-center">¿Deseas reprogramar?</h3>
+                <form onSubmit={handleReschedule} className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-4">Nuevo Día</label>
+                    <input
+                      type="date"
+                      required
+                      min={new Date().toISOString().split('T')[0]}
+                      value={newDate}
+                      onChange={(e) => setNewDate(e.target.value)}
+                      className="w-full bg-white border border-slate-200 py-4 px-6 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-brand-primary/5 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-4">Nueva Hora</label>
+                    <input
+                      type="time"
+                      required
+                      step="3600"
+                      value={newTime}
+                      onChange={(e) => setNewTime(e.target.value)}
+                      className="w-full bg-white border border-slate-200 py-4 px-6 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-brand-primary/5 transition-all"
+                    />
+                  </div>
                   <button
                     type="submit"
-                    disabled={!newDateTime || action === "rescheduling"}
-                    className="w-full py-3 rounded-xl bg-[#2C2C2C] text-white disabled:opacity-70 flex items-center justify-center gap-2"
+                    disabled={!newDate || !newTime || action === "rescheduling"}
+                    className="col-span-2 py-5 bg-brand-dark text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-brand-dark/20 disabled:opacity-30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                   >
-                    {action === "rescheduling" ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                    Reprogramar
+                    {action === "rescheduling" ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Confirmar nuevo horario'}
                   </button>
                 </form>
               </div>
 
-              <p className="text-[11px] text-[#2C2C2C]/50">
-                Solo puedes cancelar o reprogramar con al menos 2 horas de anticipación.
+              <div className="relative py-4">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100" /></div>
+                <div className="relative flex justify-center text-[10px] uppercase font-black text-slate-200 tracking-[0.4em] bg-slate-50 px-4">O bien</div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={action === "cancelling"}
+                className="w-full py-5 rounded-2xl border-2 border-slate-100 text-slate-400 font-black text-[10px] uppercase tracking-widest hover:border-red-100 hover:text-red-500 hover:bg-red-50 transition-all active:scale-[0.98]"
+              >
+                {action === "cancelling" ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cancelar cita definitivamente'}
+              </button>
+
+              <p className="text-[9px] text-slate-300 font-bold text-center leading-relaxed px-8">
+                * Recuerda que los cambios deben realizarse con al menos 2 horas de anticipación para respetar el tiempo de nuestras especialistas.
               </p>
-            </>
+            </div>
+          )}
+
+          {!isPending && (
+            <div className="text-center pt-6">
+              <a href="/" className="inline-block px-10 py-5 bg-brand-primary text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl shadow-brand-primary/20">Programar nueva cita</a>
+            </div>
           )}
         </motion.div>
+
+        <section className="text-center space-y-6">
+          <p className="text-xs text-slate-400 font-medium italic">¿Tienes alguna duda técnica? Contáctanos por WhatsApp:</p>
+          <a
+            href="https://wa.me/51906959989"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-3 px-8 py-4 bg-[#25D366] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/10 hover:scale-105 transition-all"
+          >
+            Chat de Soporte Glow
+          </a>
+        </section>
       </main>
+
+      <footer className="p-16 border-t border-slate-100 text-center space-y-4">
+        <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.5em]">Glow Skins by Nilda Reyes</p>
+        <p className="text-[9px] font-bold text-slate-200 italic">Expertos en el cuidado de tu piel</p>
+      </footer>
     </div>
   );
 }

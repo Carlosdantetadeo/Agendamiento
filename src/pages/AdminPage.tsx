@@ -107,13 +107,9 @@ export default function AdminPage() {
             <ChevronLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
             <span className="text-[10px] uppercase font-bold tracking-widest text-brand-dark">Glow Skins Web</span>
           </Link>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-brand-primary/10 flex items-center justify-center">
-              <Settings className="w-4 h-4 text-brand-primary" />
-            </div>
-            <h1 className="text-sm font-bold uppercase tracking-[0.2em] text-brand-dark">Workspace</h1>
+          <div className="w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <Lock className="w-4 h-4 text-slate-300" />
           </div>
-          <div className="w-20" />
         </div>
       </header>
 
@@ -159,10 +155,8 @@ export default function AdminPage() {
                 {tab === "agenda" && (
                   <AgendaTab
                     date={date} setDate={setDate} appointments={appointments}
-                    loading={loading} filterByDateOnly={filterByDateOnly}
-                    setFilterByDateOnly={setFilterByDateOnly} onRefresh={refreshAgenda}
+                    loading={loading} onRefresh={refreshAgenda}
                     professionals={professionals} services={services}
-                    viewMode={viewMode} setViewMode={setViewMode}
                   />
                 )}
                 {tab === "services" && (
@@ -206,25 +200,17 @@ function AgendaTab({
   setDate,
   appointments,
   loading,
-  filterByDateOnly,
-  setFilterByDateOnly,
   onRefresh,
   professionals,
   services,
-  viewMode,
-  setViewMode,
 }: {
   date: string;
   setDate: (d: string) => void;
   appointments: Appointment[];
   loading: boolean;
-  filterByDateOnly: boolean;
-  setFilterByDateOnly: (v: boolean) => void;
   onRefresh: () => void;
   professionals: Professional[];
   services: Service[];
-  viewMode: 'day' | 'week';
-  setViewMode: (v: 'day' | 'week') => void;
 }) {
   const [professionalFilter, setProfessionalFilter] = useState<number | "all">("all");
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
@@ -234,119 +220,152 @@ function AgendaTab({
       ? appointments
       : appointments.filter((a) => a.professional_id === professionalFilter);
 
-  const projectedIncome = filteredAppointments.reduce((sum, a) => {
-    if (a.status === 'cancelled') return sum;
+  const { incomeConfirmed, incomePending, countNoShow, countDone, countTotal } = filteredAppointments.reduce((acc, a) => {
     const svc = services.find(s => s.id === a.service_id);
-    return sum + (svc?.price || 0);
-  }, 0);
+    const price = svc?.price || 0;
 
-  const completedIncome = filteredAppointments
-    .filter(a => a.status === "completed")
-    .reduce((sum, a) => {
-      const svc = services.find(s => s.id === a.service_id);
-      return sum + (svc?.price || 0);
-    }, 0);
-
-  const noShows = filteredAppointments.filter(a => a.status === "no-show").length;
+    if (a.status !== 'cancelled') {
+      acc.countTotal++;
+      if (a.status === 'completed') {
+        acc.incomeConfirmed += price;
+        acc.countDone++;
+      } else if (a.status === 'no_show') {
+        acc.countNoShow++;
+      } else {
+        acc.incomePending += price;
+      }
+    }
+    return acc;
+  }, { incomeConfirmed: 0, incomePending: 0, countNoShow: 0, countDone: 0, countTotal: 0 });
 
   return (
-    <div className="space-y-8 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-      {/* Revenue Report Section - Functional & Clean */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-slate-100 pb-8">
-        {[
-          { label: "Expectativa", value: `S/. ${projectedIncome}`, sub: "Total agendado" },
-          { label: "Facturado", value: `S/. ${completedIncome}`, sub: "Citas cobradas" },
-          { label: "Ausencias", value: noShows, sub: "No asistieron" },
-        ].map((stat, i) => (
-          <div key={i} className="p-6 bg-slate-50 rounded-xl border border-slate-100">
-            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">{stat.label}</span>
-            <p className="text-3xl font-bold text-slate-900 tabular-nums">{stat.value}</p>
-            <p className="text-[10px] text-slate-400 mt-1">{stat.sub}</p>
+    <div className="space-y-10">
+      {/* Arqueo de Caja (Daily Focus) */}
+      <section className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/50 space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Arqueo de Caja</h2>
+            <div className="flex items-center gap-2 text-[10px] font-black text-brand-primary uppercase tracking-[0.2em] bg-brand-primary/5 px-4 py-1.5 rounded-full w-fit">
+              <Calendar className="w-3 h-3" /> {format(new Date(date + "T00:00:00"), "EEEE, dd MMMM yyyy")}
+            </div>
           </div>
-        ))}
+          <div className="text-right bg-slate-900 text-white p-6 rounded-[2rem] min-w-[200px] shadow-2xl shadow-slate-900/20">
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] opacity-40 mb-1">Total Proyectado</p>
+            <p className="text-4xl font-black tabular-nums">S/. {incomeConfirmed + incomePending}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {[
+            { label: "Cobradas", value: `S/. ${incomeConfirmed}`, sub: `${countDone} Citas Realizadas`, color: "emerald", icon: CheckCircle2 },
+            { label: "Pendientes", value: `S/. ${incomePending}`, sub: "Por cobrar hoy", color: "brand-primary", icon: Clock },
+            { label: "Ausencias", value: countNoShow, sub: "Sin reporte", color: "amber", icon: X },
+            { label: "Total Citas", value: countTotal, sub: "Agendadas", color: "slate", icon: Users },
+          ].map((stat, i) => (
+            <div key={i} className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 group hover:bg-white hover:shadow-lg transition-all">
+              <div className="flex items-center gap-2 mb-3">
+                <stat.icon className={`w-3 h-3 text-${stat.color}-500`} />
+                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">{stat.label}</span>
+              </div>
+              <p className="text-2xl font-black text-slate-900 tabular-nums">{stat.value}</p>
+              <p className="text-[9px] font-bold text-slate-300 mt-1 uppercase tracking-tighter">{stat.sub}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Calendar Grid Section */}
       <section className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4">
+          <div className="flex items-center gap-4 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all"
+              className="bg-transparent border-none px-4 py-2 text-sm font-black focus:outline-none uppercase tracking-widest"
             />
+            <div className="h-6 w-px bg-slate-100" />
             <button
               onClick={onRefresh}
-              className="p-2.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-brand-dark hover:text-white transition-all shadow-sm"
-              title="Actualizar"
+              className="p-3 rounded-xl hover:bg-slate-50 text-slate-400 hover:text-brand-dark transition-all"
             >
               <Loader2 className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <select
-              value={professionalFilter}
-              onChange={(e) => setProfessionalFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-primary/20 transition-all appearance-none pr-10 relative"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1rem' }}
-            >
-              <option value="all">Todas las Especialistas</option>
-              {professionals.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
+              <select
+                value={professionalFilter}
+                onChange={(e) => setProfessionalFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
+                className="bg-white border border-slate-200 rounded-2xl pl-12 pr-10 py-4 text-[10px] font-black uppercase tracking-widest focus:outline-none focus:ring-4 focus:ring-brand-primary/5 transition-all appearance-none shadow-sm"
+              >
+                <option value="all">Todas las Especialistas</option>
+                {professionals.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
+            </div>
           </div>
         </div>
 
         {/* The Actual Calendar Grid */}
-        <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-          <div className="grid grid-cols-[80px_1fr] bg-slate-100 border-b border-slate-200">
-            <div className="p-3 text-[10px] font-bold uppercase text-slate-500 text-center border-r border-slate-200">Hora</div>
-            <div className="p-3 text-[10px] font-bold uppercase text-slate-500 pl-6">Citas y Disponibilidad</div>
+        <div className="bg-white rounded-[3rem] border border-slate-100 shadow-xl overflow-hidden">
+          <div className="grid grid-cols-[120px_1fr] border-b border-slate-100 bg-slate-50/50">
+            <div className="p-6 text-[10px] font-black uppercase text-slate-400 text-center tracking-[0.3em] border-r border-slate-100">Bloque</div>
+            <div className="p-6 text-[10px] font-black uppercase text-slate-400 pl-10 tracking-[0.3em] italic">Agenda del Día</div>
           </div>
 
-          <div className="relative">
+          <div className="divide-y divide-slate-50">
             {Array.from({ length: 13 }).map((_, i) => {
               const hour = i + 8; // 08:00 to 20:00
-              const timeStr = `${String(hour).padStart(2, '0')}:00`;
-              const appts = filteredAppointments.filter(a => format(new Date(a.dateTime), "HH:mm") === timeStr);
+              const label = `${String(hour).padStart(2, '0')}:00`;
+              const appts = filteredAppointments.filter(a => format(new Date(a.dateTime), "HH:mm") === label);
 
               return (
-                <div key={timeStr} className="grid grid-cols-[80px_1fr] min-h-[80px] border-b border-slate-100 last:border-0 relative">
-                  <div className="p-4 border-r border-slate-200 bg-white flex items-start justify-center">
-                    <span className="text-sm font-bold text-slate-400 tabular-nums">{timeStr}</span>
+                <div key={label} className="grid grid-cols-[120px_1fr] min-h-[120px] relative group hover:bg-slate-50/30 transition-colors">
+                  <div className="p-6 border-r border-slate-50 flex items-start justify-center pt-10">
+                    <span className="text-3xl font-black text-slate-200 tabular-nums group-hover:text-brand-primary transition-all duration-500">{hour}</span>
                   </div>
 
-                  <div className="p-2 flex gap-2 overflow-x-auto bg-white/50 min-h-[80px]">
+                  <div className="p-5 flex gap-6 overflow-x-auto items-center">
                     {appts.length > 0 ? (
                       appts.map(appt => (
                         <button
                           key={appt.id}
                           onClick={() => setSelectedAppt(appt)}
-                          className={`flex-1 min-w-[200px] max-w-[400px] p-4 rounded-xl border text-left transition-all hover:shadow-md hover:scale-[1.01] active:scale-[0.99]
-                            ${appt.status === 'completed' ? 'bg-emerald-50 border-emerald-100' :
-                              appt.status === 'no-show' ? 'bg-amber-50 border-amber-100' :
-                                'bg-brand-dark/5 border-slate-200'}
+                          className={`flex-1 min-w-[300px] max-w-[450px] p-8 rounded-[2.5rem] border-2 text-left transition-all hover:shadow-2xl hover:-translate-y-1 relative group/card
+                            ${appt.status === 'completed' ? 'bg-emerald-50 border-emerald-100 text-emerald-900 shadow-emerald-900/5' :
+                              appt.status === 'no_show' ? 'bg-amber-50 border-amber-100 text-amber-900 shadow-amber-900/5' :
+                                'bg-brand-dark border-brand-dark text-white shadow-brand-dark/20'}
                           `}
                         >
-                          <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-bold text-sm text-slate-900 line-clamp-1">{appt.clientName}</h4>
-                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${appt.status === 'completed' ? 'bg-emerald-500 text-white' :
-                              appt.status === 'no-show' ? 'bg-amber-500 text-white' :
-                                'bg-slate-400 text-white'
-                              }`}>
-                              {appt.status}
-                            </span>
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="space-y-1">
+                              <h4 className="font-black text-lg uppercase tracking-tight">{appt.clientName}</h4>
+                              <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${appt.status === 'confirmed' ? 'opacity-60' : 'opacity-40'}`}>{appt.serviceName}</p>
+                            </div>
+                            {appt.status !== 'confirmed' && (
+                              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
+                                {appt.status === 'completed' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                              </div>
+                            )}
                           </div>
-                          <p className="text-[10px] font-bold text-brand-primary truncate uppercase tracking-wider">{appt.serviceName}</p>
-                          <p className="text-[9px] text-slate-400 mt-1 italic">{appt.professionalName || "Glow Staff"}</p>
+                          <div className="flex items-center justify-between pt-4 border-t border-current/10">
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${appt.status === 'confirmed' ? 'opacity-40' : 'opacity-30'}`}>
+                              {appt.professionalName || "Staff Especializado"}
+                            </span>
+                            <div className="opacity-0 group-hover/card:opacity-100 transition-opacity">
+                              <ArrowRight className="w-4 h-4" />
+                            </div>
+                          </div>
                         </button>
                       ))
                     ) : (
-                      <div className="flex-1 border border-dashed border-slate-200 rounded-xl flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-white/30">
-                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Disponible</span>
+                      <div className="flex-1 h-20 border-2 border-dashed border-slate-100 rounded-[2rem] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-default">
+                        <span className="text-[10px] font-black text-slate-200 uppercase tracking-[0.6em] ml-[0.6em]">Libre</span>
                       </div>
                     )}
                   </div>
@@ -360,62 +379,70 @@ function AgendaTab({
       {/* Appointment Detail Modal */}
       <AnimatePresence>
         {selectedAppt && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-xl">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.9, y: 40 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden border border-slate-200"
+              exit={{ opacity: 0, scale: 0.9, y: 40 }}
+              className="bg-white rounded-[4rem] w-full max-w-2xl shadow-2xl overflow-hidden border border-slate-200"
             >
-              <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-brand-dark text-white flex items-center justify-center">
-                    <History className="w-6 h-6" />
+              <div className="p-10 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-6">
+                  <div className="w-16 h-16 rounded-[2rem] bg-brand-dark text-white flex items-center justify-center shadow-xl shadow-brand-dark/20">
+                    <History className="w-7 h-7" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900">Detalle de la Cita</h3>
-                    <p className="text-xs text-slate-400 font-medium">Historial y estado actual</p>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">Gestión de Cita</h3>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">ID Reserva: #{selectedAppt.id.toString().padStart(4, '0')}</p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedAppt(null)} className="w-10 h-10 rounded-full hover:bg-slate-200 flex items-center justify-center transition-colors">
-                  <X className="w-5 h-5 text-slate-400" />
+                <button
+                  onClick={() => setSelectedAppt(null)}
+                  className="w-14 h-14 rounded-full bg-white border border-slate-100 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all group"
+                >
+                  <X className="w-6 h-6 text-slate-400 group-hover:text-red-500" />
                 </button>
               </div>
 
-              <div className="p-8 space-y-8">
-                <div className="grid grid-cols-2 gap-8">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Clienta</span>
-                    <p className="text-lg font-bold text-slate-900">{selectedAppt.clientName}</p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <a href={`tel:${selectedAppt.phone}`} className="flex items-center gap-1.5 text-xs font-bold text-brand-primary hover:underline">
-                        <Phone className="w-3 h-3" /> {selectedAppt.phone}
-                      </a>
-                    </div>
+              <div className="p-12 space-y-10">
+                <div className="grid grid-cols-2 gap-12">
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Clienta</span>
+                    <p className="text-2xl font-black text-slate-900">{selectedAppt.clientName}</p>
+                    <a href={`tel:${selectedAppt.phone}`} className="inline-flex items-center gap-2 text-xs font-black text-brand-primary uppercase tracking-widest hover:underline mt-2">
+                      <Phone className="w-3 h-3" /> +51 {selectedAppt.phone}
+                    </a>
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Servicio</span>
-                    <p className="text-lg font-bold text-slate-900 text-brand-primary">{selectedAppt.serviceName}</p>
-                    <p className="text-xs text-slate-400 font-medium italic mt-1">{selectedAppt.professionalName || "Especialista Glow"}</p>
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Tratamiento</span>
+                    <p className="text-2xl font-black text-brand-primary tracking-tight">{selectedAppt.serviceName}</p>
+                    <p className="text-xs text-slate-400 font-bold italic mt-2 flex items-center gap-2">
+                      <Users className="w-3 h-3" /> {selectedAppt.professionalName || "Cualquier Especialista"}
+                    </p>
                   </div>
                 </div>
 
-                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-500 font-medium">Fecha</span>
-                    <span className="font-bold underline tabular-nums">{format(new Date(selectedAppt.dateTime), "dd/MM/yyyy")}</span>
+                <div className="p-10 bg-slate-900 text-white rounded-[3rem] shadow-2xl shadow-slate-900/40 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <Calendar className="w-32 h-32" />
                   </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-500 font-medium">Horario</span>
-                    <span className="font-bold tabular-nums italic text-lg">{format(new Date(selectedAppt.dateTime), "HH:mm")}</span>
+                  <div className="grid grid-cols-2 gap-8 relative z-10">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-40">Día de cita</span>
+                      <p className="text-xl font-bold">{format(new Date(selectedAppt.dateTime + (selectedAppt.dateTime.includes('T') ? '' : 'T00:00:00')), "dd/MM/yyyy")}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-40">Hora Reservada</span>
+                      <p className="text-3xl font-black tabular-nums">{format(new Date(selectedAppt.dateTime), "HH:mm")}</p>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center text-sm pt-4 border-t border-slate-200">
-                    <span className="text-slate-500 font-medium">Estado</span>
-                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${selectedAppt.status === 'completed' ? 'bg-emerald-500 text-white' :
-                      selectedAppt.status === 'no-show' ? 'bg-amber-500 text-white' :
-                        'bg-brand-dark text-white'
+                  <div className="mt-8 pt-8 border-t border-white/10 flex items-center justify-between relative z-10">
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">Status</span>
+                    <span className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border ${selectedAppt.status === 'completed' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                      selectedAppt.status === 'no_show' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                        'bg-white/10 border-white/20 text-white'
                       }`}>
-                      {selectedAppt.status}
+                      {selectedAppt.status.replace('_', ' ')}
                     </span>
                   </div>
                 </div>
@@ -425,35 +452,32 @@ function AgendaTab({
                     <>
                       <button
                         onClick={async () => {
-                          await fetch(`/api/appointments/${selectedAppt.id}/complete`, { method: "PATCH" });
-                          onRefresh();
-                          setSelectedAppt(null);
+                          const res = await fetch(`/api/appointments/${selectedAppt.id}/complete`, { method: "PATCH" });
+                          if (res.ok) { onRefresh(); setSelectedAppt(null); }
                         }}
-                        className="flex-1 bg-emerald-500 text-white font-bold py-4 rounded-xl text-xs uppercase tracking-widest hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2"
+                        className="flex-1 bg-emerald-500 text-white font-black py-6 rounded-[2rem] text-xs uppercase tracking-[0.2em] hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 active:scale-95"
                       >
-                        <CheckCircle2 className="w-4 h-4" /> Marcar Realizada
+                        <CheckCircle2 className="w-5 h-5" /> Realizada
                       </button>
                       <button
                         onClick={async () => {
-                          await fetch(`/api/appointments/${selectedAppt.id}/no-show`, { method: "PATCH" });
-                          onRefresh();
-                          setSelectedAppt(null);
+                          const res = await fetch(`/api/appointments/${selectedAppt.id}/no-show`, { method: "PATCH" });
+                          if (res.ok) { onRefresh(); setSelectedAppt(null); }
                         }}
-                        className="flex-1 bg-amber-500 text-white font-bold py-4 rounded-xl text-xs uppercase tracking-widest hover:bg-amber-600 transition-colors shadow-lg shadow-amber-500/10 flex items-center justify-center gap-2"
+                        className="flex-1 bg-amber-500 text-white font-black py-6 rounded-[2rem] text-xs uppercase tracking-[0.2em] hover:bg-amber-600 transition-all shadow-xl shadow-amber-500/20 flex items-center justify-center gap-3 active:scale-95"
                       >
-                        <AlertCircle className="w-4 h-4" /> Marcar Ausencia
+                        <AlertCircle className="w-5 h-5" /> Ausencia
                       </button>
                     </>
                   )}
                   {selectedAppt.status !== 'cancelled' && (
                     <button
                       onClick={async () => {
-                        if (!confirm("¿Seguro que deseas cancelar esta cita definitivamente?")) return;
-                        await fetch(`/api/appointments/${selectedAppt.id}/cancel`, { method: "PATCH" });
-                        onRefresh();
-                        setSelectedAppt(null);
+                        if (!confirm("¿Seguro que deseas cancelar esta cita definitivamente? Las especialistas verán el espacio libre.")) return;
+                        const res = await fetch(`/api/appointments/${selectedAppt.id}/cancel`, { method: "PATCH" });
+                        if (res.ok) { onRefresh(); setSelectedAppt(null); }
                       }}
-                      className="flex-1 border-2 border-slate-100 text-slate-400 font-bold py-4 rounded-xl text-xs uppercase tracking-widest hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all"
+                      className="flex-1 border-2 border-slate-100 text-slate-400 font-black py-6 rounded-[2rem] text-[10px] uppercase tracking-[0.2em] hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95"
                     >
                       Cancelar Cita
                     </button>
